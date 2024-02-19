@@ -104,7 +104,7 @@ geqo(PlannerInfo *root, int number_of_rels, List *initial_rels)
 	pool_size = gimme_pool_size(number_of_rels);
 	number_generations = gimme_number_generations(pool_size);
 #ifdef GEQO_DEBUG
-	status_interval = 10;
+	status_interval = 1;
 #endif
 
 /* allocate genetic pool memory */
@@ -119,7 +119,7 @@ geqo(PlannerInfo *root, int number_of_rels, List *initial_rels)
 								 * future (-> geqo_pool.c:spread_chromo ) */
 
 #ifdef GEQO_DEBUG
-	elog(DEBUG1, "GEQO selected %d pool entries, best %.2f, worst %.2f",
+	elog(LOG, "[GEQO] GEQO selected %d pool entries, best %.2f, worst %.2f",
 		 pool_size,
 		 pool->data[0].worth,
 		 pool->data[pool_size - 1].worth);
@@ -220,8 +220,10 @@ geqo(PlannerInfo *root, int number_of_rels, List *initial_rels)
 
 
 #ifdef GEQO_DEBUG
-		if (status_interval && !(generation % status_interval))
+		if (status_interval && !(generation % status_interval)) {
 			print_gen(stdout, pool, generation);
+			print_pool(stdout, pool, 0, pool_size - 1);
+		}
 #endif
 
 	}

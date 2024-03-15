@@ -119,7 +119,7 @@ geqo(PlannerInfo *root, int number_of_rels, List *initial_rels)
 								 * future (-> geqo_pool.c:spread_chromo ) */
 
 #ifdef GEQO_DEBUG
-	elog(LOG, "[GEQO] GEQO selected %d pool entries, best %.2f, worst %.2f",
+	elog(LOG, "[VPQO][GEQO] GEQO selected %d pool entries, best %.2f, worst %.2f",
 		 pool_size,
 		 pool->data[0].worth,
 		 pool->data[pool_size - 1].worth);
@@ -232,10 +232,10 @@ geqo(PlannerInfo *root, int number_of_rels, List *initial_rels)
 #if defined(ERX)
 #if defined(GEQO_DEBUG)
 	if (edge_failures != 0)
-		elog(LOG, "[GEQO] failures: %d, average: %d",
+		elog(LOG, "[VPQO][GEQO] failures: %d, average: %d",
 			 edge_failures, (int) number_generations / edge_failures);
 	else
-		elog(LOG, "[GEQO] no edge failures detected");
+		elog(LOG, "[VPQO][GEQO] no edge failures detected");
 #else
 	/* suppress variable-set-but-not-used warnings from some compilers */
 	(void) edge_failures;
@@ -244,10 +244,10 @@ geqo(PlannerInfo *root, int number_of_rels, List *initial_rels)
 
 #if defined(CX) && defined(GEQO_DEBUG)
 	if (mutations != 0)
-		elog(LOG, "[GEQO] mutations: %d, generations: %d",
+		elog(LOG, "[VPQO][GEQO] mutations: %d, generations: %d",
 			 mutations, number_generations);
 	else
-		elog(LOG, "[GEQO] no mutations processed");
+		elog(LOG, "[VPQO][GEQO] no mutations processed");
 #endif
 
 #ifdef GEQO_DEBUG
@@ -255,7 +255,7 @@ geqo(PlannerInfo *root, int number_of_rels, List *initial_rels)
 #endif
 
 #ifdef GEQO_DEBUG
-	elog(DEBUG1, "GEQO best is %.2f after %d generations",
+	elog(DEBUG1, "[VPQO][GEQO] GEQO best is %.2f after %d generations",
 		 pool->data[0].worth, number_generations);
 #endif
 

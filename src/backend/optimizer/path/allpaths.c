@@ -13,6 +13,8 @@
  *-------------------------------------------------------------------------
  */
 
+#define OPTIMIZER_DEBUG 1
+
 #include "postgres.h"
 
 #include <limits.h>
@@ -563,6 +565,7 @@ set_rel_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	set_cheapest(rel);
 
 #ifdef OPTIMIZER_DEBUG
+	printf("[VPQO][BASE] set_rel_pathlist\n");
 	debug_print_rel(root, rel);
 #endif
 }
@@ -3482,6 +3485,7 @@ standard_join_search(PlannerInfo *root, int levels_needed, List *initial_rels)
 			set_cheapest(rel);
 
 #ifdef OPTIMIZER_DEBUG
+			printf("[VPQO][DP] standard_join_search\n");
 			debug_print_rel(root, rel);
 #endif
 		}
@@ -4350,6 +4354,7 @@ generate_partitionwise_join_paths(PlannerInfo *root, RelOptInfo *rel)
 			continue;
 
 #ifdef OPTIMIZER_DEBUG
+		printf("[VPQO][?] generate_partitionwise_join_paths\n");
 		debug_print_rel(root, child_rel);
 #endif
 

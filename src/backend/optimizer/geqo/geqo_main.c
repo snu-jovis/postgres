@@ -56,6 +56,25 @@ static int	gimme_number_generations(int pool_size);
 #error "must choose one GEQO recombination mechanism in geqo.h"
 #endif
 
+static void
+print_relids(PlannerInfo *root, Relids relids)
+{
+	int			x;
+	bool		first = true;
+
+	x = -1;
+	while ((x = bms_next_member(relids, x)) >= 0)
+	{
+		if (!first)
+			printf(" ");
+		if (x < root->simple_rel_array_size &&
+			root->simple_rte_array[x])
+			printf("%s", root->simple_rte_array[x]->eref->aliasname);
+		else
+			printf("%d", x);
+		first = false;
+	}
+}
 
 /*
  * geqo
@@ -77,6 +96,8 @@ geqo(PlannerInfo *root, int number_of_rels, List *initial_rels)
 
 #ifdef GEQO_DEBUG
 	int			status_interval;
+	int gene_value = 1;
+	ListCell   *rel;
 #endif
 	Gene	   *best_tour;
 	RelOptInfo *best_rel;
@@ -123,6 +144,15 @@ geqo(PlannerInfo *root, int number_of_rels, List *initial_rels)
 		 pool_size,
 		 pool->data[0].worth,
 		 pool->data[pool_size - 1].worth);
+
+	foreach(rel, initial_rels)
+	{
+		RelOptInfo *relinfo = (RelOptInfo *) lfirst(rel);
+
+		printf("[VPQO][GEQO] gene=%d => relids=", gene_value++);
+		print_relids(root, relinfo->relids);
+		printf("\n");
+	}
 #endif
 
 /* allocate chromosome momma and daddy memory */
@@ -174,6 +204,10 @@ geqo(PlannerInfo *root, int number_of_rels, List *initial_rels)
 
 /* my pain main part: */
 /* iterative optimization */
+
+	// print initial one
+	print_gen(stdout, pool, -1);
+	print_pool(stdout, pool, 0, pool_size - 1);
 
 	for (generation = 0; generation < number_generations; generation++)
 	{

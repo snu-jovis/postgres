@@ -565,8 +565,9 @@ set_rel_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	set_cheapest(rel);
 
 #ifdef OPTIMIZER_DEBUG
-	printf("[VPQO][BASE] set_rel_pathlist\n");
+	printf("[VPQO][BASE] set_rel_pathlist started\n");
 	debug_print_rel(root, rel);
+	printf("[VPQO][BASE] set_rel_pathlist done\n");
 #endif
 }
 
@@ -3485,8 +3486,9 @@ standard_join_search(PlannerInfo *root, int levels_needed, List *initial_rels)
 			set_cheapest(rel);
 
 #ifdef OPTIMIZER_DEBUG
-			printf("[VPQO][DP] standard_join_search\n");
+			printf("[VPQO][DP] standard_join_search started\n");
 			debug_print_rel(root, rel);
+			printf("[VPQO][DP] standard_join_search done\n");
 #endif
 		}
 	}
@@ -4354,8 +4356,9 @@ generate_partitionwise_join_paths(PlannerInfo *root, RelOptInfo *rel)
 			continue;
 
 #ifdef OPTIMIZER_DEBUG
-		printf("[VPQO][?] generate_partitionwise_join_paths\n");
+		printf("[VPQO][?] generate_partitionwise_join_paths started\n");
 		debug_print_rel(root, child_rel);
+		printf("[VPQO][?] generate_partitionwise_join_paths done\n");
 #endif
 
 		live_children = lappend(live_children, child_rel);

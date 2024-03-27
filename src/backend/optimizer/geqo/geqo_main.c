@@ -305,6 +305,7 @@ geqo(PlannerInfo *root, int number_of_rels, List *initial_rels)
 	if (best_rel == NULL)
 		elog(ERROR, "geqo failed to make a valid plan");
 
+
 	/* DBG: show the query plan */
 #ifdef NOT_USED
 	print_plan(best_plan, root);

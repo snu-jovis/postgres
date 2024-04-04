@@ -166,6 +166,9 @@ static void recurse_push_qual(Node *setOp, Query *topquery,
 static void remove_unused_subquery_outputs(Query *subquery, RelOptInfo *rel,
 										   Bitmapset *extra_used_attrs);
 
+static void
+print_relids(PlannerInfo *root, Relids relids);
+
 
 /*
  * make_one_rel
@@ -234,6 +237,13 @@ make_one_rel(PlannerInfo *root, List *joinlist)
 	 * The result should join all and only the query's base + outer-join rels.
 	 */
 	Assert(bms_equal(rel->relids, root->all_query_rels));
+
+	printf("[VPQO] split line=");
+	printf("RELOPTINFO (");
+	print_relids(root, rel->relids);
+	printf(")\n");
+
+	fflush(stdout);
 
 	return rel;
 }

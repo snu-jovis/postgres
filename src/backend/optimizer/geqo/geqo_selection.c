@@ -72,6 +72,8 @@ geqo_selection(PlannerInfo *root, Chromosome *momma, Chromosome *daddy,
 
 	geqo_copy(root, momma, &pool->data[first], pool->string_length);
 	geqo_copy(root, daddy, &pool->data[second], pool->string_length);
+
+	printf("[VPQO][GEQO] parents=[%d, %d]\n", first, second);
 }
 
 /*

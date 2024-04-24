@@ -62,6 +62,7 @@ geqo_eval(PlannerInfo *root, Gene *tour, int num_gene)
 	Cost		fitness;
 	int			savelength;
 	struct HTAB *savehash;
+	ListCell   *lc;
 
 	/*
 	 * Create a private memory context that will hold all temp storage
@@ -116,6 +117,24 @@ geqo_eval(PlannerInfo *root, Gene *tour, int num_gene)
 	}
 	else
 		fitness = DBL_MAX;
+
+
+	// [GEQO]
+	{
+		RelOptInfo* rel2;
+		int j;
+
+		printf("[VPQO][GEQO][JOININFO] gene= ");
+		for (j = 0; j < num_gene; j++)
+			printf("%d ", tour[j]);
+		printf("\n");
+
+		// the last element of join_rel_list should be the most completed relids
+		rel2 = (RelOptInfo *) llast((ListCell*)root->join_rel_list);
+		debug_print_rel(root, rel2);
+
+		printf("[VPQO][GEQO][JOININFO] Done\n");
+	}
 
 	/*
 	 * Restore join_rel_list to its former state, and put back original

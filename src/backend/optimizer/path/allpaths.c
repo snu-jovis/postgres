@@ -13,6 +13,8 @@
  *-------------------------------------------------------------------------
  */
 
+#define OPTIMIZER_DEBUG 1
+
 #include "postgres.h"
 
 #include <limits.h>
@@ -164,6 +166,9 @@ static void recurse_push_qual(Node *setOp, Query *topquery,
 static void remove_unused_subquery_outputs(Query *subquery, RelOptInfo *rel,
 										   Bitmapset *extra_used_attrs);
 
+static void
+print_relids(PlannerInfo *root, Relids relids);
+
 
 /*
  * make_one_rel
@@ -232,6 +237,13 @@ make_one_rel(PlannerInfo *root, List *joinlist)
 	 * The result should join all and only the query's base + outer-join rels.
 	 */
 	Assert(bms_equal(rel->relids, root->all_query_rels));
+
+	printf("[VPQO] split line=");
+	printf("RELOPTINFO (");
+	print_relids(root, rel->relids);
+	printf(")\n");
+
+	fflush(stdout);
 
 	return rel;
 }
@@ -563,7 +575,9 @@ set_rel_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	set_cheapest(rel);
 
 #ifdef OPTIMIZER_DEBUG
+	printf("[VPQO][BASE] set_rel_pathlist started\n");
 	debug_print_rel(root, rel);
+	printf("[VPQO][BASE] set_rel_pathlist done\n");
 #endif
 }
 
@@ -3482,7 +3496,9 @@ standard_join_search(PlannerInfo *root, int levels_needed, List *initial_rels)
 			set_cheapest(rel);
 
 #ifdef OPTIMIZER_DEBUG
+			printf("[VPQO][DP] standard_join_search started\n");
 			debug_print_rel(root, rel);
+			printf("[VPQO][DP] standard_join_search done\n");
 #endif
 		}
 	}
@@ -4350,7 +4366,9 @@ generate_partitionwise_join_paths(PlannerInfo *root, RelOptInfo *rel)
 			continue;
 
 #ifdef OPTIMIZER_DEBUG
+		printf("[VPQO][?] generate_partitionwise_join_paths started\n");
 		debug_print_rel(root, child_rel);
+		printf("[VPQO][?] generate_partitionwise_join_paths done\n");
 #endif
 
 		live_children = lappend(live_children, child_rel);

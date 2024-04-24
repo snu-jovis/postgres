@@ -74,7 +74,7 @@ print_pool(FILE *fp, Pool *pool, int start, int stop)
 
 	for (i = start; i < stop; i++)
 	{
-		fprintf(fp, "%d)\t", i);
+		fprintf(fp, "[GEQO] %d)\t", i);
 		for (j = 0; j < pool->string_length; j++)
 			fprintf(fp, "%d ", pool->data[i].string[j]);
 		fprintf(fp, "%g\n", pool->data[i].worth);
@@ -97,7 +97,7 @@ print_gen(FILE *fp, Pool *pool, int generation)
 	lowest = pool->size > 1 ? pool->size - 2 : 0;
 
 	fprintf(fp,
-			"%5d | Best: %g  Worst: %g  Mean: %g  Avg: %g\n",
+			"[GEQO] %5d | Best: %g  Worst: %g  Mean: %g  Avg: %g\n",
 			generation,
 			pool->data[0].worth,
 			pool->data[lowest].worth,

@@ -627,7 +627,7 @@ add_path(RelOptInfo *parent_rel, Path *new_path)
 			pfree(new_path);
 	}
 
-	elog(LOG, "Adding path of type %d with startup cost %f and total cost %f to RelOptInfo with relids %s",
+	elog(LOG, "[COST] Adding path of type %d with startup cost %f and total cost %f to RelOptInfo with relids %s",
 		new_path->pathtype,
 		new_path->startup_cost,
 		new_path->total_cost,

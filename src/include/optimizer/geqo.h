@@ -28,9 +28,7 @@
 
 
 /* GEQO debug flag */
-/*
- #define GEQO_DEBUG
- */
+#define GEQO_DEBUG
 
 /* choose one recombination mechanism here */
 /*

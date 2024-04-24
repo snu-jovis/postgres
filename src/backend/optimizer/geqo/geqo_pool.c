@@ -246,6 +246,8 @@ spread_chromo(PlannerInfo *root, Chromosome *chromo, Pool *pool)
 	 * copy new gene into pool storage; always replace worst gene in pool
 	 */
 
+	printf("[VPQO][GEQO] newone_idx=%d\n", index);
+
 	geqo_copy(root, &pool->data[pool->size - 1], chromo, pool->string_length);
 
 	swap_chromo.string = pool->data[pool->size - 1].string;

@@ -4625,14 +4625,16 @@ print_path(PlannerInfo *root, Path *path, int indent)
 	if (path->cpu_run_cost != 0 && path->disk_run_cost != 0) {
 		for (i = 0; i < indent; i++)
 			printf("\t");
-		printf("  run cost: cpu=%.2f disk=%.2f tuples:%d cpu_per_tuple:%.2f pages:%.6f spc_seq_page_cost=%.2f target_per_tuple=%.6f\n",
+		printf("  details: ");
+		printf("cpu_run_cost=%.2f disk_run_cost=%.2f tuples=%d cpu_per_tuple=%.2f pages=%.6f spc_seq_page_cost=%.2f target_per_tuple=%.6f\n",
 			   path->cpu_run_cost, path->disk_run_cost, path->tuples, path->cpu_per_tuple, path->pages, path->spc_seq_page_cost, path->pathtarget->cost.per_tuple);
 	}
 	/* BitmapHeapScan */ 
 	if (path->T != 0 && path->cost_per_page != 0) {
 		for (i = 0; i < indent; i++)
 			printf("\t");
-		printf("  cpu_run_cost=%.2f tuples=%d, cpu_per_tuple=%.2f target_per_tuple=%.6f pages=%.6f spc_seq_page_cost=%.2f spc_random_page_cost=%.2f T=%.2f index_total_cost=%.6f cost_per_page=%.2f\n",
+		printf("  details: ");
+		printf("cpu_run_cost=%.2f tuples=%d cpu_per_tuple=%.2f target_per_tuple=%.6f pages=%.6f spc_seq_page_cost=%.2f spc_random_page_cost=%.2f T=%.2f index_total_cost=%.6f cost_per_page=%.2f\n",
 			   path->cpu_run_cost, path->tuples, path->cpu_per_tuple, path->pathtarget->cost.per_tuple, path->pages, path->spc_seq_page_cost, path->spc_random_page_cost, path->T, path->indexTotalCost, path->cost_per_page);
 	}
 	/* IdxScan */ 
@@ -4640,7 +4642,8 @@ print_path(PlannerInfo *root, Path *path, int indent)
 		IndexPath   *ip = (IndexPath *) path;
 					
 		for (i = 0; i < indent; i++) printf("\t");
-		printf("  selectivity=%.4f tuples_fetched=%.0f index_startup_cost=%.2f index_total_cost=%.2f cpu_per_tuple=%.2f min_IO_cost=%.2f max_IO_cost=%.2f index_correlation=%.2f pages_fetched=%.0f c^2=%.5f\n",
+		printf("  details: ");
+		printf("selectivity=%.4f tuples_fetched=%.0f index_startup_cost=%.2f index_total_cost=%.2f cpu_per_tuple=%.2f min_IO_cost=%.2f max_IO_cost=%.2f index_correlation=%.2f pages_fetched=%.0f c^2=%.5f\n",
 			ip->indexselectivity, ip->tuples_fetched, ip->indexstartupcost, ip->indextotalcost, ip->cpu_per_tuple,
 			ip->min_IO_cost, ip->max_IO_cost, ip->indexcorrelation, ip->pages_fetched, ip->csquared);
 	}
@@ -4652,7 +4655,51 @@ print_path(PlannerInfo *root, Path *path, int indent)
 		Cost comparison_cost = 2 * cpu_operator_cost;
 		
 		for (i = 0; i < indent; i++) printf("\t");
-		printf("  comparison cost=%.3f cpu operator cost=%.4f N=%d input startup cost=%.2f\n", comparison_cost, cpu_operator_cost, gmp->num_workers + 1, gmp->input_startup_cost);
+		printf("  details: ");
+		printf("comparison_cost=%.3f cpu_operator_cost=%.4f N=%d input_startup_cost=%.2f\n", comparison_cost, cpu_operator_cost, gmp->num_workers + 1, gmp->input_startup_cost);
+	}
+	if (join)
+	{
+		JoinPath   *jp = (JoinPath *) path;
+
+		/* MergeJoin */
+		if (IsA(path, MergePath))
+		{
+			MergePath  *mp = (MergePath *) path;
+
+			for (i = 0; i < indent; i++)
+				printf("\t");
+			printf("  details: ");
+			printf("sortouter=%d sortinner=%d materializeinner=%d merge_outer_path_rows=%.2f merge_inner_path_rows=%.2f merge_outer_rows=%.2f merge_inner_rows=%.2f merge_outer_skip_rows=%.2f merge_inner_skip_rows=%.2f merge_outer_start_sel=%.2f merge_outer_end_sel=%.2f merge_inner_start_sel=%.2f merge_inner_end_sel=%.2f merge_inner_run_cost=%.2f inner_path_rows=%.2f outer_rows=%.2f inner_rows=%.2f outer_skip_rows=%.2f inner_skip_rows=%.2f inner_run_cost=%.2f bare_inner_cost=%.2f mat_inner_cost=%.2f mergejointuples=%.2f rescannedtuples=%.2f rescanratio=%.2f\n",
+				   ((mp->outersortkeys) ? 1 : 0),
+				   ((mp->innersortkeys) ? 1 : 0),
+				   ((mp->materialize_inner) ? 1 : 0),
+				   path->merge_outer_path_rows, path->merge_inner_path_rows, path->merge_outer_rows, path->merge_inner_rows, path->merge_outer_skip_rows, path->merge_inner_skip_rows, path->merge_outer_start_sel, path->merge_outer_end_sel, path->merge_inner_start_sel, path->merge_inner_end_sel, path->merge_inner_run_cost, mp->inner_path_rows, mp->outer_rows, mp->inner_rows, mp->outer_skip_rows, mp->inner_skip_rows, mp->inner_run_cost, mp->bare_inner_cost, mp->mat_inner_cost, mp->mergejointuples, mp->rescannedtuples, mp->rescanratio);
+		} 
+		/* NestLoop */
+		else if(IsA(path, NestPath)){
+			NestPath  *np = (NestPath *) path;
+			for (i = 0; i < indent; i++)
+				printf("\t");
+			printf("  details: ");
+			printf("inner_rescan_start_cost=%.2f inner_rescan_total_cost=%.2f inner_run_cost=%.2f inner_rescan_run_cost=%.2f outer_path_rows=%.2f inner_run_cost=%.2f inner_rescan_run_cost=%.2f outer_matched_rows=%.2f outer_unmatched_rows=%.2f inner_scan_frac=%.2f ntuples=%.2f\n",
+				   path->inner_rescan_start_cost, path->inner_rescan_total_cost, path->inner_run_cost, path->inner_rescan_run_cost, path->outer_path_rows, np->inner_run_cost, np->inner_rescan_run_cost, np->outer_matched_rows, np->outer_unmatched_rows, np->inner_scan_frac, np->ntuples);
+		} 
+		/* HashJoin */
+		else if(IsA(path, HashPath)){
+			HashPath  *hp = (HashPath *) path;
+			for (i = 0; i < indent; i++)
+				printf("\t");
+			printf("  details: ");
+			printf("hashbuild_cost=%.2f hashjoin_cost=%.2f innerbuild_cost=%.2f outerbuild_cost=%.2f hashcpu_cost=%.2f seqpage_cost=%.2f inner_path_rows_total=%.2f numbuckets=%d numbatches=%d innerpages=%d outerpages=%d initial_startup_cost=%.2f initial_run_cost=%.2f num_hashclauses=%d outer_path_rows=%.2f inner_path_rows=%.2f inner_path_rows_total=%.2f cpu_per_tuple=%.2f hash_qual_cost.startup=%.2f hash_qual_cost.per_tuple=%.2f qp_qual_cost.startup=%.2f qp_qual_cost.per_tuple=%.2f hashjointuples=%.2f virtualbuckets=%.2f innerbucketsize=%.2f innermcvfreq=%.2f\n",
+				   path->hashbuild_cost, path->hashjoin_cost, path->innerbuild_cost, path->outerbuild_cost, path->hashcpu_cost, path->seqpage_cost, path->inner_path_rows_total, path->numbuckets, path->numbatches, path->innerpages, path->outerpages, hp->initial_startup_cost, hp->initial_run_cost, hp->num_hashclauses, hp->outer_path_rows, hp->inner_path_rows, hp->inner_path_rows_total, hp->cpu_per_tuple, hp->hash_qual_cost.startup, hp->hash_qual_cost.per_tuple, hp->qp_qual_cost.startup, hp->qp_qual_cost.per_tuple, hp->hashjointuples, hp->virtualbuckets, hp->innerbucketsize, hp->innermcvfreq);
+		}
+
+		for (i = 0; i < indent; i++)
+			printf("\t");
+		printf("  clauses: ");
+		print_restrictclauses(root, jp->joinrestrictinfo);
+		printf("\n");
 	}
 	if (path->pathkeys)
 	{
@@ -4664,35 +4711,9 @@ print_path(PlannerInfo *root, Path *path, int indent)
 	if (join)
 	{
 		JoinPath   *jp = (JoinPath *) path;
-
-		for (i = 0; i < indent; i++)
-			printf("\t");
-		printf("  clauses: ");
-		print_restrictclauses(root, jp->joinrestrictinfo);
-		printf("\n");
-
-		if (IsA(path, MergePath))
-		{
-			MergePath  *mp = (MergePath *) path;
-
-			for (i = 0; i < indent; i++)
-				printf("\t");
-			printf("  sortouter=%d sortinner=%d materializeinner=%d\n",
-				   ((mp->outersortkeys) ? 1 : 0),
-				   ((mp->innersortkeys) ? 1 : 0),
-				   ((mp->materialize_inner) ? 1 : 0));
-			if (mp->outersortkeys){
-			}
-			else if (mp->innersortkeys){
-			}
-			else if (mp->materialize_inner){
-			}
-		}
-
 		print_path(root, jp->outerjoinpath, indent + 1);
 		print_path(root, jp->innerjoinpath, indent + 1);
 	}
-
 	if (subpath)
 		print_path(root, subpath, indent + 1);
 }

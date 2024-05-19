@@ -293,6 +293,8 @@ cost_seqscan(Path *path, PlannerInfo *root,
 	 * disk costs
 	 */
 	disk_run_cost = spc_seq_page_cost * baserel->pages;
+
+	/* Save intermediate results to the path struct */
 	path->pages = baserel->pages;
 	path->spc_seq_page_cost = spc_seq_page_cost;
 
@@ -303,7 +305,8 @@ cost_seqscan(Path *path, PlannerInfo *root,
 	startup_cost += qpqual_cost.startup;
 	cpu_per_tuple = cpu_tuple_cost + qpqual_cost.per_tuple;
 	cpu_run_cost = cpu_per_tuple * baserel->tuples;
-	
+
+	/* Save intermediate results to the path struct */
 	path->cpu_per_tuple = cpu_per_tuple;
 	path->tuples = baserel->tuples;
 
@@ -333,6 +336,7 @@ cost_seqscan(Path *path, PlannerInfo *root,
 		path->rows = clamp_row_est(path->rows / parallel_divisor);
 	}
 
+	/* Save intermediate results to the path struct */
 	path->cpu_run_cost = cpu_run_cost;
 	path->disk_run_cost = disk_run_cost;
 
@@ -571,16 +575,6 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 	Assert(baserel->relid > 0);
 	Assert(baserel->rtekind == RTE_RELATION);
 
-	path->min_IO_cost = 0.0;
-	path->max_IO_cost = 0.0;
-	path->indexstartupcost = 0.0;
-	path->cpu_per_tuple = 0.0;
-	path->tuples_fetched = 0.0;
-	path->pages_fetched = 0.0;
-	path->indexcorrelation = 0.0;
-	path->csquared = 0.0;
-	path->cpu_run_cost = 0.0;
-
 	/*
 	 * Mark the path with the correct row estimate, and identify which quals
 	 * will need to be enforced as qpquals.  We need not check any quals that
@@ -633,10 +627,14 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 	/* all costs for touching index itself included here */
 	startup_cost += indexStartupCost;
 	run_cost += indexTotalCost - indexStartupCost;
+
+	/* Save intermediate results to the path struct */
 	path->indexstartupcost = indexStartupCost;
 
 	/* estimate number of main-table tuples fetched */
 	tuples_fetched = clamp_row_est(indexSelectivity * baserel->tuples);
+	
+	/* Save intermediate results to the path struct */
 	path->tuples_fetched = tuples_fetched;
 
 	/* fetch estimated page costs for tablespace containing table */
@@ -787,10 +785,14 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 	 * disk I/O cost for main table accesses.
 	 */
 	csquared = indexCorrelation * indexCorrelation;
+
+	/* Save intermediate results to the path struct */
 	path->indexcorrelation = indexCorrelation;
 	path->csquared = csquared;
 
 	run_cost += max_IO_cost + csquared * (min_IO_cost - max_IO_cost);
+	
+	/* Save intermediate results to the path struct */
 	path->max_IO_cost = max_IO_cost;
 	path->min_IO_cost = min_IO_cost;
 
@@ -804,6 +806,8 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 
 	startup_cost += qpqual_cost.startup;
 	cpu_per_tuple = cpu_tuple_cost + qpqual_cost.per_tuple;
+
+	/* Save intermediate results to the path struct */
 	path->cpu_per_tuple = cpu_per_tuple;
 
 	cpu_run_cost += cpu_per_tuple * tuples_fetched;
@@ -822,6 +826,8 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 		/* The CPU cost is divided among all the workers. */
 		cpu_run_cost /= parallel_divisor;
 	}
+	
+	/* Save intermediate results to the path struct */
 	path->cpu_run_cost = cpu_run_cost;
 
 	run_cost += cpu_run_cost;
@@ -1054,9 +1060,12 @@ cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
 	pages_fetched = compute_bitmap_pages(root, baserel, bitmapqual,
 										 loop_count, &indexTotalCost,
 										 &tuples_fetched);
+	/* Save intermediate results to the path struct */
 	path->pages = pages_fetched;
 
 	startup_cost += indexTotalCost;
+
+	/* Save intermediate results to the path struct */
 	path->indexTotalCost = indexTotalCost;
 
 	T = (baserel->pages > 1) ? (double) baserel->pages : 1.0;
@@ -1100,6 +1109,8 @@ cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
 	startup_cost += qpqual_cost.startup;
 	cpu_per_tuple = cpu_tuple_cost + qpqual_cost.per_tuple;
 	cpu_run_cost = cpu_per_tuple * tuples_fetched;
+
+	/* Save intermediate results to the path struct */
 	path->tuples = tuples_fetched;
 	path->cpu_per_tuple = cpu_per_tuple;
 	path->cpu_run_cost = cpu_run_cost;
@@ -3066,6 +3077,12 @@ initial_cost_nestloop(PlannerInfo *root, JoinCostWorkspace *workspace,
 			run_cost += (outer_path_rows - 1) * inner_rescan_run_cost;
 	}
 
+	inner_path->inner_rescan_start_cost = inner_rescan_start_cost;
+	inner_path->inner_rescan_total_cost = inner_rescan_total_cost;
+	inner_path->inner_run_cost = inner_run_cost;
+	inner_path->inner_rescan_run_cost = inner_rescan_run_cost;
+	inner_path->outer_path_rows = outer_path_rows;
+
 	/* CPU costs left for later */
 
 	/* Public result fields */
@@ -3236,6 +3253,12 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 			if (outer_unmatched_rows > 0)
 				run_cost += outer_unmatched_rows * inner_rescan_run_cost;
 		}
+		path->inner_run_cost = inner_run_cost;
+		path->inner_rescan_run_cost = inner_rescan_run_cost;
+		path->outer_matched_rows = outer_matched_rows;
+		path->outer_unmatched_rows = outer_unmatched_rows;
+		path->inner_scan_frac = inner_scan_frac;
+		path->ntuples = ntuples;
 	}
 	else
 	{
@@ -3243,6 +3266,8 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 
 		/* Compute number of tuples processed (not number emitted!) */
 		ntuples = outer_path_rows * inner_path_rows;
+
+		path->ntuples = ntuples;
 	}
 
 	/* CPU costs */
@@ -3312,6 +3337,9 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 				innerendsel;
 	Path		sort_path;		/* dummy for result of cost_sort */
 
+	/* Save intermediate results to the path struct */
+	outer_path->merge_outer_path_rows = outer_path_rows;
+	inner_path->merge_inner_path_rows = inner_path_rows;
 
 	/* Protect some assumptions below that rowcounts aren't zero */
 	if (outer_path_rows <= 0)
@@ -3393,6 +3421,11 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 		outerendsel = innerendsel = 1.0;
 	}
 
+	/* Save intermediate results to the path struct */
+	outer_path->merge_outer_start_sel = outerstartsel;
+	outer_path->merge_outer_end_sel = outerendsel;
+	inner_path->merge_inner_start_sel = innerstartsel;
+	inner_path->merge_inner_end_sel = innerendsel;
 
 	/*
 	 * Convert selectivities to row counts.  We force outer_rows and
@@ -3402,6 +3435,12 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	inner_skip_rows = rint(inner_path_rows * innerstartsel);
 	outer_rows = clamp_row_est(outer_path_rows * outerendsel);
 	inner_rows = clamp_row_est(inner_path_rows * innerendsel);
+
+	/* Save intermediate results to the path struct */
+	outer_path->merge_outer_skip_rows = outer_skip_rows;
+	inner_path->merge_inner_skip_rows = inner_skip_rows;
+	outer_path->merge_outer_rows = outer_rows;
+	inner_path->merge_inner_rows = inner_rows;
 
 	Assert(outer_skip_rows <= outer_rows);
 	Assert(inner_skip_rows <= inner_rows);
@@ -3418,6 +3457,13 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 
 	Assert(outerstartsel <= outerendsel);
 	Assert(innerstartsel <= innerendsel);
+
+	/* Save intermediate results to the path struct */
+	outer_path->merge_outer_start_sel = outerstartsel;
+	inner_path->merge_inner_start_sel = innerstartsel;
+	outer_path->merge_outer_end_sel = outerendsel;
+	inner_path->merge_inner_end_sel = innerendsel;
+
 
 	/* cost of source data */
 
@@ -3472,6 +3518,10 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 		inner_run_cost = (inner_path->total_cost - inner_path->startup_cost)
 			* (innerendsel - innerstartsel);
 	}
+
+
+	/* Save intermediate results to the path struct */
+	inner_path->merge_inner_run_cost = inner_run_cost;
 
 	/*
 	 * We can't yet determine whether rescanning occurs, or whether
@@ -3641,12 +3691,19 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 			rescannedtuples = 0;
 	}
 
+	/* Save intermediate results to the path struct */
+	path->mergejointuples = mergejointuples;
+	path->rescannedtuples = rescannedtuples;
+
 	/*
 	 * We'll inflate various costs this much to account for rescanning.  Note
 	 * that this is to be multiplied by something involving inner_rows, or
 	 * another number related to the portion of the inner rel we'll scan.
 	 */
 	rescanratio = 1.0 + (rescannedtuples / inner_rows);
+
+	/* Save intermediate results to the path struct */
+	path->rescanratio = rescanratio;
 
 	/*
 	 * Decide whether we want to materialize the inner input to shield it from
@@ -3658,6 +3715,9 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 	 * rescanratio.
 	 */
 	bare_inner_cost = inner_run_cost * rescanratio;
+
+	/* Save intermediate results to the path struct */
+	path->bare_inner_cost = bare_inner_cost;
 
 	/*
 	 * When we interpose a Material node the re-fetch cost is assumed to be
@@ -3674,6 +3734,9 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 	 */
 	mat_inner_cost = inner_run_cost +
 		cpu_operator_cost * inner_rows * rescanratio;
+
+	/* Save intermediate results to the path struct */
+	path->mat_inner_cost = mat_inner_cost;
 
 	/*
 	 * If we don't need mark/restore at all, we don't need materialization.
@@ -3873,6 +3936,10 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	startup_cost += outer_path->startup_cost;
 	run_cost += outer_path->total_cost - outer_path->startup_cost;
 	startup_cost += inner_path->total_cost;
+	
+	/* Save intermediate results to the path struct */
+	inner_path->innerbuild_cost = inner_path->total_cost;
+
 
 	/*
 	 * Cost of computing hash function: must do it once per input tuple. We
@@ -3884,9 +3951,13 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	 * should charge the extra eval costs of the left or right side, as
 	 * appropriate, here.  This seems more work than it's worth at the moment.
 	 */
-	startup_cost += (cpu_operator_cost * num_hashclauses + cpu_tuple_cost)
+	Cost hashcpu_cost = (cpu_operator_cost * num_hashclauses + cpu_tuple_cost)
 		* inner_path_rows;
+	startup_cost += hashcpu_cost;
 	run_cost += cpu_operator_cost * num_hashclauses * outer_path_rows;
+
+	/* Save intermediate results to the path struct */
+	inner_path->hashcpu_cost += hashcpu_cost;
 	
 
 	/*
@@ -3933,8 +4004,15 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 										   inner_path->pathtarget->width);
 
 		startup_cost += seq_page_cost * innerpages;
+		
+		/* Save intermediate results to the path struct */
+		inner_path->innerpages = innerpages;
+		inner_path->seqpage_cost = seq_page_cost * innerpages;
+		
 		run_cost += seq_page_cost * (innerpages + 2 * outerpages);
-	
+		
+		/* Save intermediate results to the path struct */
+		outer_path->outerpages = outerpages;
 	}
 
 	/* CPU costs left for later */
@@ -4204,6 +4282,21 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 
 	path->jpath.path.startup_cost = startup_cost;
 	path->jpath.path.total_cost = startup_cost + run_cost;
+	
+	/* Save intermediate results to the path struct */
+	path->initial_startup_cost = workspace->startup_cost;
+    path->initial_run_cost = workspace->run_cost;
+    path->num_hashclauses = list_length(hashclauses);
+    path->outer_path_rows = outer_path_rows;
+    path->inner_path_rows = inner_path_rows;
+    path->inner_path_rows_total = inner_path_rows_total;
+    path->cpu_per_tuple = cpu_per_tuple;
+    path->hash_qual_cost = hash_qual_cost;
+    path->qp_qual_cost = qp_qual_cost;
+    path->hashjointuples = hashjointuples;
+    path->virtualbuckets = virtualbuckets;
+    path->innerbucketsize = innerbucketsize;
+    path->innermcvfreq = innermcvfreq;
 }
 
 

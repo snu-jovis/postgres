@@ -69,6 +69,8 @@
  *-------------------------------------------------------------------------
  */
 
+#define OPTIMIZER_DEBUG 1
+
 #include "postgres.h"
 
 #include <limits.h>
@@ -84,6 +86,9 @@
 #include "miscadmin.h"
 #include "nodes/makefuncs.h"
 #include "nodes/nodeFuncs.h"
+#ifdef OPTIMIZER_DEBUG
+#include "nodes/print.h"
+#endif
 #include "optimizer/clauses.h"
 #include "optimizer/cost.h"
 #include "optimizer/optimizer.h"
@@ -263,6 +268,9 @@ cost_seqscan(Path *path, PlannerInfo *root,
 	QualCost	qpqual_cost;
 	Cost		cpu_per_tuple;
 
+	path->cpu_run_cost = 0.0;
+	path->disk_run_cost = 0.0;
+
 	/* Should only be applied to base relations */
 	Assert(baserel->relid > 0);
 	Assert(baserel->rtekind == RTE_RELATION);
@@ -285,6 +293,9 @@ cost_seqscan(Path *path, PlannerInfo *root,
 	 * disk costs
 	 */
 	disk_run_cost = spc_seq_page_cost * baserel->pages;
+	path->pages = baserel->pages;
+	path->spc_seq_page_cost = spc_seq_page_cost;
+
 
 	/* CPU costs */
 	get_restriction_qual_cost(root, baserel, param_info, &qpqual_cost);
@@ -292,6 +303,10 @@ cost_seqscan(Path *path, PlannerInfo *root,
 	startup_cost += qpqual_cost.startup;
 	cpu_per_tuple = cpu_tuple_cost + qpqual_cost.per_tuple;
 	cpu_run_cost = cpu_per_tuple * baserel->tuples;
+	
+	path->cpu_per_tuple = cpu_per_tuple;
+	path->tuples = baserel->tuples;
+
 	/* tlist eval costs are paid per output row, not per tuple scanned */
 	startup_cost += path->pathtarget->cost.startup;
 	cpu_run_cost += path->pathtarget->cost.per_tuple * path->rows;
@@ -318,8 +333,12 @@ cost_seqscan(Path *path, PlannerInfo *root,
 		path->rows = clamp_row_est(path->rows / parallel_divisor);
 	}
 
+	path->cpu_run_cost = cpu_run_cost;
+	path->disk_run_cost = disk_run_cost;
+
 	path->startup_cost = startup_cost;
 	path->total_cost = startup_cost + cpu_run_cost + disk_run_cost;
+
 }
 
 /*
@@ -465,6 +484,7 @@ cost_gather_merge(GatherMergePath *path, PlannerInfo *root,
 	if (!enable_gathermerge)
 		startup_cost += disable_cost;
 
+	path->input_startup_cost = input_startup_cost;
 	/*
 	 * Add one to the number of workers to account for the leader.  This might
 	 * be overgenerous since the leader will do less work than other workers
@@ -551,6 +571,16 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 	Assert(baserel->relid > 0);
 	Assert(baserel->rtekind == RTE_RELATION);
 
+	path->min_IO_cost = 0.0;
+	path->max_IO_cost = 0.0;
+	path->indexstartupcost = 0.0;
+	path->cpu_per_tuple = 0.0;
+	path->tuples_fetched = 0.0;
+	path->pages_fetched = 0.0;
+	path->indexcorrelation = 0.0;
+	path->csquared = 0.0;
+	path->cpu_run_cost = 0.0;
+
 	/*
 	 * Mark the path with the correct row estimate, and identify which quals
 	 * will need to be enforced as qpquals.  We need not check any quals that
@@ -603,9 +633,11 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 	/* all costs for touching index itself included here */
 	startup_cost += indexStartupCost;
 	run_cost += indexTotalCost - indexStartupCost;
+	path->indexstartupcost = indexStartupCost;
 
 	/* estimate number of main-table tuples fetched */
 	tuples_fetched = clamp_row_est(indexSelectivity * baserel->tuples);
+	path->tuples_fetched = tuples_fetched;
 
 	/* fetch estimated page costs for tablespace containing table */
 	get_tablespace_page_costs(baserel->reltablespace,
@@ -755,8 +787,12 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 	 * disk I/O cost for main table accesses.
 	 */
 	csquared = indexCorrelation * indexCorrelation;
+	path->indexcorrelation = indexCorrelation;
+	path->csquared = csquared;
 
 	run_cost += max_IO_cost + csquared * (min_IO_cost - max_IO_cost);
+	path->max_IO_cost = max_IO_cost;
+	path->min_IO_cost = min_IO_cost;
 
 	/*
 	 * Estimate CPU costs per tuple.
@@ -768,6 +804,7 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 
 	startup_cost += qpqual_cost.startup;
 	cpu_per_tuple = cpu_tuple_cost + qpqual_cost.per_tuple;
+	path->cpu_per_tuple = cpu_per_tuple;
 
 	cpu_run_cost += cpu_per_tuple * tuples_fetched;
 
@@ -785,6 +822,7 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 		/* The CPU cost is divided among all the workers. */
 		cpu_run_cost /= parallel_divisor;
 	}
+	path->cpu_run_cost = cpu_run_cost;
 
 	run_cost += cpu_run_cost;
 
@@ -1016,9 +1054,13 @@ cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
 	pages_fetched = compute_bitmap_pages(root, baserel, bitmapqual,
 										 loop_count, &indexTotalCost,
 										 &tuples_fetched);
+	path->pages = pages_fetched;
 
 	startup_cost += indexTotalCost;
+	path->indexTotalCost = indexTotalCost;
+
 	T = (baserel->pages > 1) ? (double) baserel->pages : 1.0;
+	path->T = T;
 
 	/* Fetch estimated page costs for tablespace containing table. */
 	get_tablespace_page_costs(baserel->reltablespace,
@@ -1038,6 +1080,9 @@ cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
 			* sqrt(pages_fetched / T);
 	else
 		cost_per_page = spc_random_page_cost;
+	path->spc_random_page_cost = spc_random_page_cost;
+	path->spc_seq_page_cost = spc_seq_page_cost;
+	path->cost_per_page = cost_per_page;
 
 	run_cost += pages_fetched * cost_per_page;
 
@@ -1055,6 +1100,9 @@ cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
 	startup_cost += qpqual_cost.startup;
 	cpu_per_tuple = cpu_tuple_cost + qpqual_cost.per_tuple;
 	cpu_run_cost = cpu_per_tuple * tuples_fetched;
+	path->tuples = tuples_fetched;
+	path->cpu_per_tuple = cpu_per_tuple;
+	path->cpu_run_cost = cpu_run_cost;
 
 	/* Adjust costing for parallelism, if used. */
 	if (path->parallel_workers > 0)
@@ -3264,6 +3312,7 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 				innerendsel;
 	Path		sort_path;		/* dummy for result of cost_sort */
 
+
 	/* Protect some assumptions below that rowcounts aren't zero */
 	if (outer_path_rows <= 0)
 		outer_path_rows = 1;
@@ -3343,6 +3392,7 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 		outerstartsel = innerstartsel = 0.0;
 		outerendsel = innerendsel = 1.0;
 	}
+
 
 	/*
 	 * Convert selectivities to row counts.  We force outer_rows and
@@ -3837,6 +3887,7 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	startup_cost += (cpu_operator_cost * num_hashclauses + cpu_tuple_cost)
 		* inner_path_rows;
 	run_cost += cpu_operator_cost * num_hashclauses * outer_path_rows;
+	
 
 	/*
 	 * If this is a parallel hash build, then the value we have for
@@ -3883,6 +3934,7 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 
 		startup_cost += seq_page_cost * innerpages;
 		run_cost += seq_page_cost * (innerpages + 2 * outerpages);
+	
 	}
 
 	/* CPU costs left for later */

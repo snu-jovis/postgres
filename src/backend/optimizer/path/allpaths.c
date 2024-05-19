@@ -4621,7 +4621,39 @@ print_path(PlannerInfo *root, Path *path, int indent)
 	}
 	printf(" rows=%.0f cost=%.2f..%.2f\n",
 		   path->rows, path->startup_cost, path->total_cost);
-
+	/* SeqScan */ 
+	if (path->cpu_run_cost != 0 && path->disk_run_cost != 0) {
+		for (i = 0; i < indent; i++)
+			printf("\t");
+		printf("  run cost: cpu=%.2f disk=%.2f tuples:%d cpu_per_tuple:%.2f pages:%.6f spc_seq_page_cost=%.2f target_per_tuple=%.6f\n",
+			   path->cpu_run_cost, path->disk_run_cost, path->tuples, path->cpu_per_tuple, path->pages, path->spc_seq_page_cost, path->pathtarget->cost.per_tuple);
+	}
+	/* BitmapHeapScan */ 
+	if (path->T != 0 && path->cost_per_page != 0) {
+		for (i = 0; i < indent; i++)
+			printf("\t");
+		printf("  cpu_run_cost=%.2f tuples=%d, cpu_per_tuple=%.2f target_per_tuple=%.6f pages=%.6f spc_seq_page_cost=%.2f spc_random_page_cost=%.2f T=%.2f index_total_cost=%.6f cost_per_page=%.2f\n",
+			   path->cpu_run_cost, path->tuples, path->cpu_per_tuple, path->pathtarget->cost.per_tuple, path->pages, path->spc_seq_page_cost, path->spc_random_page_cost, path->T, path->indexTotalCost, path->cost_per_page);
+	}
+	/* IdxScan */ 
+	if (IsA(path, IndexPath)) {
+		IndexPath   *ip = (IndexPath *) path;
+					
+		for (i = 0; i < indent; i++) printf("\t");
+		printf("  selectivity=%.4f tuples_fetched=%.0f index_startup_cost=%.2f index_total_cost=%.2f cpu_per_tuple=%.2f min_IO_cost=%.2f max_IO_cost=%.2f index_correlation=%.2f pages_fetched=%.0f c^2=%.5f\n",
+			ip->indexselectivity, ip->tuples_fetched, ip->indexstartupcost, ip->indextotalcost, ip->cpu_per_tuple,
+			ip->min_IO_cost, ip->max_IO_cost, ip->indexcorrelation, ip->pages_fetched, ip->csquared);
+	}
+	/* GatherMerge */ 
+	if (IsA(path, GatherMergePath)) {
+		GatherMergePath   *gmp = (GatherMergePath *) path;
+		
+		Cost cpu_operator_cost = 0.0025;
+		Cost comparison_cost = 2 * cpu_operator_cost;
+		
+		for (i = 0; i < indent; i++) printf("\t");
+		printf("  comparison cost=%.3f cpu operator cost=%.4f N=%d input startup cost=%.2f\n", comparison_cost, cpu_operator_cost, gmp->num_workers + 1, gmp->input_startup_cost);
+	}
 	if (path->pathkeys)
 	{
 		for (i = 0; i < indent; i++)
@@ -4629,7 +4661,6 @@ print_path(PlannerInfo *root, Path *path, int indent)
 		printf("  pathkeys: ");
 		print_pathkeys(path->pathkeys, root->parse->rtable);
 	}
-
 	if (join)
 	{
 		JoinPath   *jp = (JoinPath *) path;
@@ -4650,6 +4681,12 @@ print_path(PlannerInfo *root, Path *path, int indent)
 				   ((mp->outersortkeys) ? 1 : 0),
 				   ((mp->innersortkeys) ? 1 : 0),
 				   ((mp->materialize_inner) ? 1 : 0));
+			if (mp->outersortkeys){
+			}
+			else if (mp->innersortkeys){
+			}
+			else if (mp->materialize_inner){
+			}
 		}
 
 		print_path(root, jp->outerjoinpath, indent + 1);

@@ -1631,6 +1631,20 @@ typedef struct Path
 
 	/* sort ordering of path's output; a List of PathKey nodes; see above */
 	List	   *pathkeys;
+
+	/* seq scan */
+	Cost 		cpu_run_cost;
+	Cost 		disk_run_cost;
+	Cost 		cpu_per_tuple;
+	int			tuples;
+	double		pages;
+	double		spc_seq_page_cost;
+
+	/* bitmap heap scan */
+	double		T;
+	double 		spc_random_page_cost;
+	Cost		cost_per_page;
+	Cost		indexTotalCost;
 } Path;
 
 /* Macro for extracting a path's parameterization relids; beware double eval */
@@ -1682,6 +1696,17 @@ typedef struct IndexPath
 	ScanDirection indexscandir;
 	Cost		indextotalcost;
 	Selectivity indexselectivity;
+	
+	/* idx scan */
+	Cost		min_IO_cost;
+	Cost		max_IO_cost;
+	Cost		indexstartupcost;
+	Cost		cpu_per_tuple;
+	double		tuples_fetched;
+	double		pages_fetched;
+	double		indexcorrelation;
+	double		csquared;
+	Cost 		cpu_run_cost;
 } IndexPath;
 
 /*
@@ -2011,6 +2036,7 @@ typedef struct GatherMergePath
 	Path		path;
 	Path	   *subpath;		/* path for each worker */
 	int			num_workers;	/* number of workers sought to help */
+	Cost 		input_startup_cost;
 } GatherMergePath;
 
 

@@ -4670,11 +4670,10 @@ print_path(PlannerInfo *root, Path *path, int indent)
 			for (i = 0; i < indent; i++)
 				printf("\t");
 			printf("  details: ");
-			printf("sortouter=%d sortinner=%d materializeinner=%d merge_outer_path_rows=%.2f merge_inner_path_rows=%.2f merge_outer_rows=%.2f merge_inner_rows=%.2f merge_outer_skip_rows=%.2f merge_inner_skip_rows=%.2f merge_outer_start_sel=%.2f merge_outer_end_sel=%.2f merge_inner_start_sel=%.2f merge_inner_end_sel=%.2f merge_inner_run_cost=%.2f inner_path_rows=%.2f outer_rows=%.2f inner_rows=%.2f outer_skip_rows=%.2f inner_skip_rows=%.2f inner_run_cost=%.2f bare_inner_cost=%.2f mat_inner_cost=%.2f mergejointuples=%.2f rescannedtuples=%.2f rescanratio=%.2f\n",
+			printf("sortouter=%d sortinner=%d materializeinner=%d initial_run_cost=%.2f initial_startup_cost=%.2f inner_run_cost=%.2f inner_scan_cost=%.2f inner_startup_cost=%.2f outer_scan_cost=%.2f outer_startup_cost=%.2f outerendsel=%.6f outerstartsel=%.6f innerendsel=%.6f innerstartsel=%.6f outer_rows=%.2f inner_rows=%.2f outer_skip_rows=%.2f inner_skip_rows=%.2f\n",
 				   ((mp->outersortkeys) ? 1 : 0),
 				   ((mp->innersortkeys) ? 1 : 0),
-				   ((mp->materialize_inner) ? 1 : 0),
-				   path->merge_outer_path_rows, path->merge_inner_path_rows, path->merge_outer_rows, path->merge_inner_rows, path->merge_outer_skip_rows, path->merge_inner_skip_rows, path->merge_outer_start_sel, path->merge_outer_end_sel, path->merge_inner_start_sel, path->merge_inner_end_sel, path->merge_inner_run_cost, mp->inner_path_rows, mp->outer_rows, mp->inner_rows, mp->outer_skip_rows, mp->inner_skip_rows, mp->inner_run_cost, mp->bare_inner_cost, mp->mat_inner_cost, mp->mergejointuples, mp->rescannedtuples, mp->rescanratio);
+				   ((mp->materialize_inner) ? 1 : 0), mp->initial_run_cost, mp->initial_startup_cost, mp->inner_run_cost, mp->inner_scan_cost, mp->inner_startup_cost, mp->outer_scan_cost, mp->outer_startup_cost, mp->outerendsel, mp->outerstartsel, mp->innerendsel, mp->innerstartsel, mp->outer_rows, mp->inner_rows, mp->outer_skip_rows, mp->inner_skip_rows);
 		} 
 		/* NestLoop */
 		else if(IsA(path, NestPath)){
@@ -4682,8 +4681,8 @@ print_path(PlannerInfo *root, Path *path, int indent)
 			for (i = 0; i < indent; i++)
 				printf("\t");
 			printf("  details: ");
-			printf("inner_rescan_start_cost=%.2f inner_rescan_total_cost=%.2f inner_run_cost=%.2f inner_rescan_run_cost=%.2f outer_path_rows=%.2f inner_run_cost=%.2f inner_rescan_run_cost=%.2f outer_matched_rows=%.2f outer_unmatched_rows=%.2f inner_scan_frac=%.2f ntuples=%.2f\n",
-				   path->inner_rescan_start_cost, path->inner_rescan_total_cost, path->inner_run_cost, path->inner_rescan_run_cost, path->outer_path_rows, np->inner_run_cost, np->inner_rescan_run_cost, np->outer_matched_rows, np->outer_unmatched_rows, np->inner_scan_frac, np->ntuples);
+			printf("initial_startup_cost=%.2f initial_run_cost=%.2f inner_run_cost=%.2f inner_rescan_run_cost=%.2f inner_rescan_start_cost=%.2f inner_path_startup=%.2f outer_rows=%.2f outer_path_startup=%.2f outer_path_run=%.2f\n",
+				   np->initial_startup_cost, np->initial_run_cost, np->inner_run_cost, np->inner_rescan_run_cost, np->inner_rescan_start_cost, np->inner_path_startup, np->outer_rows, np->outer_path_startup, np->outer_path_run);
 		} 
 		/* HashJoin */
 		else if(IsA(path, HashPath)){
@@ -4691,8 +4690,8 @@ print_path(PlannerInfo *root, Path *path, int indent)
 			for (i = 0; i < indent; i++)
 				printf("\t");
 			printf("  details: ");
-			printf("hashbuild_cost=%.2f hashjoin_cost=%.2f innerbuild_cost=%.2f outerbuild_cost=%.2f hashcpu_cost=%.2f seqpage_cost=%.2f inner_path_rows_total=%.2f numbuckets=%d numbatches=%d innerpages=%d outerpages=%d initial_startup_cost=%.2f initial_run_cost=%.2f num_hashclauses=%d outer_path_rows=%.2f inner_path_rows=%.2f inner_path_rows_total=%.2f cpu_per_tuple=%.2f hash_qual_cost.startup=%.2f hash_qual_cost.per_tuple=%.2f qp_qual_cost.startup=%.2f qp_qual_cost.per_tuple=%.2f hashjointuples=%.2f virtualbuckets=%.2f innerbucketsize=%.2f innermcvfreq=%.2f\n",
-				   path->hashbuild_cost, path->hashjoin_cost, path->innerbuild_cost, path->outerbuild_cost, path->hashcpu_cost, path->seqpage_cost, path->inner_path_rows_total, path->numbuckets, path->numbatches, path->innerpages, path->outerpages, hp->initial_startup_cost, hp->initial_run_cost, hp->num_hashclauses, hp->outer_path_rows, hp->inner_path_rows, hp->inner_path_rows_total, hp->cpu_per_tuple, hp->hash_qual_cost.startup, hp->hash_qual_cost.per_tuple, hp->qp_qual_cost.startup, hp->qp_qual_cost.per_tuple, hp->hashjointuples, hp->virtualbuckets, hp->innerbucketsize, hp->innermcvfreq);
+			printf("initial_startup_cost=%.2f initial_run_cost=%.2f outer_path_startup=%.2f outer_path_total=%.2f inner_path_startup=%.2f inner_path_total=%.2f cpu_operator_cost=%.5f num_hashclauses=%d cpu_tuple_cost=%.2f inner_path_rows=%.2f hashcpu_cost=%.2f outer_path_rows=%.2f innerpages=%.2f outerpages=%.2f seqpage_cost=%.6f\n",
+				   hp->initial_startup_cost, hp->initial_run_cost, hp->outer_path_startup, hp->outer_path_total, hp->inner_path_startup, hp->inner_path_total, hp->cpu_operator_cost, hp->num_hashclauses, hp->cpu_tuple_cost, hp->inner_path_rows, hp->hashcpu_cost, hp->outer_path_rows, hp->innerpages, hp->outerpages, hp->seqpage_cost);
 		}
 
 		for (i = 0; i < indent; i++)

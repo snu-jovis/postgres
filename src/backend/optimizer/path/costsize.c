@@ -3047,9 +3047,19 @@ initial_cost_nestloop(PlannerInfo *root, JoinCostWorkspace *workspace,
 	 * multiple times.
 	 */
 	startup_cost += outer_path->startup_cost + inner_path->startup_cost;
+	
+	/* Save intermediate results to the JoinCostWorkSpace struct */
+	workspace->outer_path_startup = outer_path->startup_cost;
+	workspace->inner_path_startup = inner_path->startup_cost;
+
 	run_cost += outer_path->total_cost - outer_path->startup_cost;
 	if (outer_path_rows > 1)
 		run_cost += (outer_path_rows - 1) * inner_rescan_start_cost;
+	
+	/* Save intermediate results to the JoinCostWorkSpace struct */
+	workspace->inner_rescan_start_cost = inner_rescan_start_cost;
+	workspace->outer_path_run = run_cost;
+	workspace->outer_rows = outer_path_rows -1;
 
 	inner_run_cost = inner_path->total_cost - inner_path->startup_cost;
 	inner_rescan_run_cost = inner_rescan_total_cost - inner_rescan_start_cost;
@@ -3066,8 +3076,8 @@ initial_cost_nestloop(PlannerInfo *root, JoinCostWorkspace *workspace,
 		 */
 
 		/* Save private data for final_cost_nestloop */
-		workspace->inner_run_cost = inner_run_cost;
-		workspace->inner_rescan_run_cost = inner_rescan_run_cost;
+		// workspace->inner_run_cost = inner_run_cost;
+		// workspace->inner_rescan_run_cost = inner_rescan_run_cost;
 	}
 	else
 	{
@@ -3076,13 +3086,10 @@ initial_cost_nestloop(PlannerInfo *root, JoinCostWorkspace *workspace,
 		if (outer_path_rows > 1)
 			run_cost += (outer_path_rows - 1) * inner_rescan_run_cost;
 	}
-
-	inner_path->inner_rescan_start_cost = inner_rescan_start_cost;
-	inner_path->inner_rescan_total_cost = inner_rescan_total_cost;
-	inner_path->inner_run_cost = inner_run_cost;
-	inner_path->inner_rescan_run_cost = inner_rescan_run_cost;
-	inner_path->outer_path_rows = outer_path_rows;
-
+	/* Save private data for final_cost_nestloop */
+	workspace->inner_run_cost = inner_run_cost;
+	workspace->inner_rescan_run_cost = inner_rescan_run_cost;
+	
 	/* CPU costs left for later */
 
 	/* Public result fields */
@@ -3253,12 +3260,6 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 			if (outer_unmatched_rows > 0)
 				run_cost += outer_unmatched_rows * inner_rescan_run_cost;
 		}
-		path->inner_run_cost = inner_run_cost;
-		path->inner_rescan_run_cost = inner_rescan_run_cost;
-		path->outer_matched_rows = outer_matched_rows;
-		path->outer_unmatched_rows = outer_unmatched_rows;
-		path->inner_scan_frac = inner_scan_frac;
-		path->ntuples = ntuples;
 	}
 	else
 	{
@@ -3266,8 +3267,6 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 
 		/* Compute number of tuples processed (not number emitted!) */
 		ntuples = outer_path_rows * inner_path_rows;
-
-		path->ntuples = ntuples;
 	}
 
 	/* CPU costs */
@@ -3282,6 +3281,17 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 
 	path->jpath.path.startup_cost = startup_cost;
 	path->jpath.path.total_cost = startup_cost + run_cost;
+
+	/* Save intermediate results to the path struct */
+	path->initial_run_cost = workspace->run_cost;
+	path->initial_startup_cost = workspace->startup_cost;
+	path->inner_run_cost = workspace->inner_run_cost;
+	path->inner_rescan_run_cost = workspace->inner_rescan_run_cost;
+	path->inner_rescan_start_cost = workspace->inner_rescan_start_cost;
+	path->outer_rows = workspace->outer_rows;
+	path->outer_path_run = workspace->outer_path_run;
+	path->inner_path_startup = workspace->inner_path_startup;
+	path->outer_path_startup = workspace->outer_path_startup;	
 }
 
 /*
@@ -3337,9 +3347,6 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 				innerendsel;
 	Path		sort_path;		/* dummy for result of cost_sort */
 
-	/* Save intermediate results to the path struct */
-	outer_path->merge_outer_path_rows = outer_path_rows;
-	inner_path->merge_inner_path_rows = inner_path_rows;
 
 	/* Protect some assumptions below that rowcounts aren't zero */
 	if (outer_path_rows <= 0)
@@ -3421,11 +3428,6 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 		outerendsel = innerendsel = 1.0;
 	}
 
-	/* Save intermediate results to the path struct */
-	outer_path->merge_outer_start_sel = outerstartsel;
-	outer_path->merge_outer_end_sel = outerendsel;
-	inner_path->merge_inner_start_sel = innerstartsel;
-	inner_path->merge_inner_end_sel = innerendsel;
 
 	/*
 	 * Convert selectivities to row counts.  We force outer_rows and
@@ -3436,11 +3438,6 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	outer_rows = clamp_row_est(outer_path_rows * outerendsel);
 	inner_rows = clamp_row_est(inner_path_rows * innerendsel);
 
-	/* Save intermediate results to the path struct */
-	outer_path->merge_outer_skip_rows = outer_skip_rows;
-	inner_path->merge_inner_skip_rows = inner_skip_rows;
-	outer_path->merge_outer_rows = outer_rows;
-	inner_path->merge_inner_rows = inner_rows;
 
 	Assert(outer_skip_rows <= outer_rows);
 	Assert(inner_skip_rows <= inner_rows);
@@ -3457,13 +3454,6 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 
 	Assert(outerstartsel <= outerendsel);
 	Assert(innerstartsel <= innerendsel);
-
-	/* Save intermediate results to the path struct */
-	outer_path->merge_outer_start_sel = outerstartsel;
-	inner_path->merge_inner_start_sel = innerstartsel;
-	outer_path->merge_outer_end_sel = outerendsel;
-	inner_path->merge_inner_end_sel = innerendsel;
-
 
 	/* cost of source data */
 
@@ -3483,6 +3473,11 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 			* outerstartsel;
 		run_cost += (sort_path.total_cost - sort_path.startup_cost)
 			* (outerendsel - outerstartsel);
+		
+		/* Save intermediate results to the JoinCostWorkSpace struct */
+		workspace->outer_startup_cost = sort_path.startup_cost;
+		workspace->outer_scan_cost = (sort_path.total_cost - sort_path.startup_cost)
+			* outerstartsel;
 	}
 	else
 	{
@@ -3491,6 +3486,11 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 			* outerstartsel;
 		run_cost += (outer_path->total_cost - outer_path->startup_cost)
 			* (outerendsel - outerstartsel);
+		
+		/* Save intermediate results to the JoinCostWorkSpace struct */
+		workspace->outer_startup_cost = outer_path->startup_cost;
+		workspace->outer_scan_cost = (outer_path->total_cost - outer_path->startup_cost)
+			* outerstartsel;
 	}
 
 	if (innersortkeys)			/* do we need to sort inner? */
@@ -3507,6 +3507,12 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 		startup_cost += sort_path.startup_cost;
 		startup_cost += (sort_path.total_cost - sort_path.startup_cost)
 			* innerstartsel;
+		
+		/* Save intermediate results to the JoinCostWorkSpace struct */
+		workspace->inner_startup_cost = sort_path.startup_cost;
+		workspace->inner_scan_cost = (sort_path.total_cost - sort_path.startup_cost)
+			* innerstartsel;
+		
 		inner_run_cost = (sort_path.total_cost - sort_path.startup_cost)
 			* (innerendsel - innerstartsel);
 	}
@@ -3517,11 +3523,12 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 			* innerstartsel;
 		inner_run_cost = (inner_path->total_cost - inner_path->startup_cost)
 			* (innerendsel - innerstartsel);
+		
+		/* Save intermediate results to the JoinCostWorkSpace struct */
+		workspace->inner_startup_cost = inner_path->startup_cost;
+		workspace->inner_scan_cost = (inner_path->total_cost - inner_path->startup_cost)
+			* innerstartsel;
 	}
-
-
-	/* Save intermediate results to the path struct */
-	inner_path->merge_inner_run_cost = inner_run_cost;
 
 	/*
 	 * We can't yet determine whether rescanning occurs, or whether
@@ -3536,6 +3543,13 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	/* Public result fields */
 	workspace->startup_cost = startup_cost;
 	workspace->total_cost = startup_cost + run_cost + inner_run_cost;
+
+	/* Save intermediate results to the JoinCostWorkSpace struct */
+	workspace->outerendsel = outerendsel;
+	workspace->outerstartsel = outerstartsel;
+	workspace->innerendsel = innerendsel;
+	workspace->innerstartsel = innerstartsel;
+	
 	/* Save private data for final_cost_mergejoin */
 	workspace->run_cost = run_cost;
 	workspace->inner_run_cost = inner_run_cost;
@@ -3691,9 +3705,6 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 			rescannedtuples = 0;
 	}
 
-	/* Save intermediate results to the path struct */
-	path->mergejointuples = mergejointuples;
-	path->rescannedtuples = rescannedtuples;
 
 	/*
 	 * We'll inflate various costs this much to account for rescanning.  Note
@@ -3702,8 +3713,6 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 	 */
 	rescanratio = 1.0 + (rescannedtuples / inner_rows);
 
-	/* Save intermediate results to the path struct */
-	path->rescanratio = rescanratio;
 
 	/*
 	 * Decide whether we want to materialize the inner input to shield it from
@@ -3716,8 +3725,6 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 	 */
 	bare_inner_cost = inner_run_cost * rescanratio;
 
-	/* Save intermediate results to the path struct */
-	path->bare_inner_cost = bare_inner_cost;
 
 	/*
 	 * When we interpose a Material node the re-fetch cost is assumed to be
@@ -3735,8 +3742,6 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 	mat_inner_cost = inner_run_cost +
 		cpu_operator_cost * inner_rows * rescanratio;
 
-	/* Save intermediate results to the path struct */
-	path->mat_inner_cost = mat_inner_cost;
 
 	/*
 	 * If we don't need mark/restore at all, we don't need materialization.
@@ -3829,6 +3834,23 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 
 	path->jpath.path.startup_cost = startup_cost;
 	path->jpath.path.total_cost = startup_cost + run_cost;
+
+	/* Save intermediate results to the path struct */
+	path->initial_run_cost = workspace->run_cost;
+	path->initial_startup_cost = workspace->startup_cost;
+	path->inner_run_cost= workspace->inner_run_cost;
+	path->inner_startup_cost = workspace->inner_startup_cost;
+	path->outer_startup_cost = workspace->outer_startup_cost;
+	path->inner_scan_cost = workspace->inner_scan_cost;
+	path->outer_scan_cost = workspace->outer_scan_cost;
+	path->outerendsel = workspace->outerendsel;
+	path->outerstartsel = workspace->outerstartsel;
+	path->innerendsel = workspace->innerendsel;
+	path->innerstartsel = workspace->innerstartsel;
+	path->outer_rows = workspace->outer_rows;
+	path->inner_rows = workspace->inner_rows;
+	path->outer_skip_rows = workspace->outer_skip_rows;
+	path->inner_skip_rows = workspace->inner_skip_rows;
 }
 
 /*
@@ -3937,10 +3959,11 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	run_cost += outer_path->total_cost - outer_path->startup_cost;
 	startup_cost += inner_path->total_cost;
 	
-	/* Save intermediate results to the path struct */
-	inner_path->innerbuild_cost = inner_path->total_cost;
-
-
+	/* Save intermediate results to the JoinCostWorkspace struct */
+	workspace->outer_path_startup = outer_path->startup_cost;
+	workspace->outer_path_total = outer_path->total_cost;
+	workspace->inner_path_startup = inner_path->startup_cost;
+	workspace->inner_path_total = inner_path->total_cost;
 	/*
 	 * Cost of computing hash function: must do it once per input tuple. We
 	 * charge one cpu_operator_cost for each column's hash function.  Also,
@@ -3951,15 +3974,21 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	 * should charge the extra eval costs of the left or right side, as
 	 * appropriate, here.  This seems more work than it's worth at the moment.
 	 */
-	Cost hashcpu_cost = (cpu_operator_cost * num_hashclauses + cpu_tuple_cost)
+	double hashcpu_cost = (cpu_operator_cost * num_hashclauses + cpu_tuple_cost)
 		* inner_path_rows;
 	startup_cost += hashcpu_cost;
+
+	/* Save intermediate results to the JoinCostWorkspace struct */
+	workspace->cpu_operator_cost = cpu_operator_cost;
+	workspace->cpu_tuple_cost = cpu_tuple_cost;
+	workspace->num_hashclauses = num_hashclauses;
+	workspace->inner_path_rows = inner_path_rows;
+	workspace->hashcpu_cost = hashcpu_cost;
+
 	run_cost += cpu_operator_cost * num_hashclauses * outer_path_rows;
 
-	/* Save intermediate results to the path struct */
-	inner_path->hashcpu_cost += hashcpu_cost;
+	workspace->outer_path_rows = outer_path_rows;
 	
-
 	/*
 	 * If this is a parallel hash build, then the value we have for
 	 * inner_rows_total currently refers only to the rows returned by each
@@ -4005,14 +4034,14 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 
 		startup_cost += seq_page_cost * innerpages;
 		
-		/* Save intermediate results to the path struct */
-		inner_path->innerpages = innerpages;
-		inner_path->seqpage_cost = seq_page_cost * innerpages;
+		/* Save intermediate results to the JoinCostWorkspace struct */
+		workspace->innerpages = innerpages;
+		workspace->seqpage_cost = seq_page_cost * innerpages;
 		
 		run_cost += seq_page_cost * (innerpages + 2 * outerpages);
 		
 		/* Save intermediate results to the path struct */
-		outer_path->outerpages = outerpages;
+		workspace->outerpages = outerpages;
 	}
 
 	/* CPU costs left for later */
@@ -4020,6 +4049,7 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	/* Public result fields */
 	workspace->startup_cost = startup_cost;
 	workspace->total_cost = startup_cost + run_cost;
+	
 	/* Save private data for final_cost_hashjoin */
 	workspace->run_cost = run_cost;
 	workspace->numbuckets = numbuckets;
@@ -4284,19 +4314,21 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 	path->jpath.path.total_cost = startup_cost + run_cost;
 	
 	/* Save intermediate results to the path struct */
+	path->initial_run_cost = workspace->run_cost;
 	path->initial_startup_cost = workspace->startup_cost;
-    path->initial_run_cost = workspace->run_cost;
-    path->num_hashclauses = list_length(hashclauses);
-    path->outer_path_rows = outer_path_rows;
-    path->inner_path_rows = inner_path_rows;
-    path->inner_path_rows_total = inner_path_rows_total;
-    path->cpu_per_tuple = cpu_per_tuple;
-    path->hash_qual_cost = hash_qual_cost;
-    path->qp_qual_cost = qp_qual_cost;
-    path->hashjointuples = hashjointuples;
-    path->virtualbuckets = virtualbuckets;
-    path->innerbucketsize = innerbucketsize;
-    path->innermcvfreq = innermcvfreq;
+	path->outer_path_startup = workspace->outer_path_startup;
+	path->outer_path_total = workspace->outer_path_total;
+	path->inner_path_startup = workspace->inner_path_startup;
+	path->inner_path_total = workspace->inner_path_total;
+	path->cpu_operator_cost = workspace->cpu_operator_cost;
+	path->num_hashclauses = workspace->num_hashclauses;
+	path->cpu_tuple_cost = workspace->cpu_tuple_cost;
+	path->inner_path_rows = workspace->inner_path_rows;
+	path->hashcpu_cost = workspace->hashcpu_cost;
+	path->outer_path_rows = workspace->outer_path_rows;
+	path->innerpages = workspace->innerpages;
+	path->outerpages = workspace->outerpages;
+	path->seqpage_cost = workspace->seqpage_cost;
 }
 
 

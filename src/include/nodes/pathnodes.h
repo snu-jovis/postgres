@@ -2109,12 +2109,15 @@ typedef struct NestPath
 	JoinPath	jpath;
 
 	/* Variables to store intermediate calculation results */
-	Cost		inner_run_cost;
+	Cost		inner_run_cost; 
 	Cost		inner_rescan_run_cost;
-	double		outer_matched_rows;
-	double		outer_unmatched_rows;
-	Selectivity inner_scan_frac;
-	double		ntuples;
+	Cost		inner_rescan_start_cost;
+	Cardinality outer_rows;
+	Cost		outer_path_run;
+	Cost		inner_path_startup;
+	Cost 		outer_path_startup;
+	Cost 		initial_run_cost;
+	Cost		initial_startup_cost;
 } NestPath;
 
 /*
@@ -2162,18 +2165,23 @@ typedef struct MergePath
 	bool		materialize_inner;	/* add Materialize to inner? */
 
 	/* Variables to store intermediate calculation results */
-	double		inner_path_rows;
-	double		outer_rows;
-	double		inner_rows;
-	double		outer_skip_rows;
-	double		inner_skip_rows;
+	Cost		initial_run_cost;
+	Cost		initial_startup_cost;
+	Selectivity outerstartsel;
+	Selectivity outerendsel;
+	Selectivity innerstartsel;
+	Selectivity innerendsel;
+	Cost		outer_scan_cost;
+	Cost		outer_startup_cost;
+	Cost		inner_scan_cost;
+	Cost		inner_startup_cost;
 	Cost		inner_run_cost;
-	Cost		bare_inner_cost;
-	Cost		mat_inner_cost;
-	double		mergejointuples;
-	double		rescannedtuples;
-	double		rescanratio;
+	Cardinality outer_rows;
+	Cardinality inner_rows;
+	Cardinality outer_skip_rows;
+	Cardinality inner_skip_rows;
 } MergePath;
+
 
 /*
  * A hashjoin path has these fields.
@@ -2192,19 +2200,21 @@ typedef struct HashPath
 	Cardinality inner_rows_total;	/* total inner rows expected */
 	
 	/* Variables to store intermediate calculation results */
-	Cost        initial_startup_cost;
-    Cost        initial_run_cost;
-    int         num_hashclauses;
-    double      outer_path_rows;
-    double      inner_path_rows;
-    double      inner_path_rows_total;
-    Cost        cpu_per_tuple;
-    QualCost    hash_qual_cost;
-    QualCost    qp_qual_cost;
-    double      hashjointuples;
-    double      virtualbuckets;
-    Selectivity innerbucketsize;
-    Selectivity innermcvfreq;
+	Cost 		outer_path_startup;
+	Cost 		outer_path_total;
+	Cost		inner_path_startup;
+	Cost		inner_path_total;
+	Cost		cpu_operator_cost;
+	int			num_hashclauses;
+	Cost		cpu_tuple_cost;
+	double		inner_path_rows;
+	Cost		hashcpu_cost;
+	double		outer_path_rows;
+	double 		innerpages;
+	double		outerpages;
+	Cost		seqpage_cost;
+	Cost 		initial_startup_cost;
+	Cost		initial_run_cost;
 } HashPath;
 
 /*
@@ -3387,16 +3397,46 @@ typedef struct JoinCostWorkspace
 	Cost		inner_run_cost; /* also used by cost_mergejoin code */
 	Cost		inner_rescan_run_cost;
 
+	/* new for cost_nestloop code */
+	Cost		inner_rescan_start_cost;
+	
 	/* private for cost_mergejoin code */
 	Cardinality outer_rows;
 	Cardinality inner_rows;
 	Cardinality outer_skip_rows;
 	Cardinality inner_skip_rows;
 
+	
+	/* new for cost_mergejoin code */
+	Selectivity outerstartsel;
+	Selectivity outerendsel;
+	Selectivity innerstartsel;
+	Selectivity innerendsel;
+	Cost		outer_startup_cost;
+	Cost 		inner_startup_cost;
+	Cost		outer_scan_cost;
+	Cost		inner_scan_cost;
+
 	/* private for cost_hashjoin code */
 	int			numbuckets;
 	int			numbatches;
 	Cardinality inner_rows_total;
+
+	/* new for cost_hashjoin code */
+	Cost 		outer_path_startup;
+	Cost 		outer_path_total;
+	Cost		outer_path_run;
+	Cost		inner_path_startup;
+	Cost		inner_path_total;
+	Cost		cpu_operator_cost;
+	int			num_hashclauses;
+	Cost		cpu_tuple_cost;
+	Cardinality	inner_path_rows;
+	double		hashcpu_cost;
+	Cardinality	outer_path_rows;
+	double 		innerpages;
+	double		outerpages;
+	Cost		seqpage_cost;
 } JoinCostWorkspace;
 
 /*

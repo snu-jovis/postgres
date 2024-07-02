@@ -1636,6 +1636,7 @@ typedef struct Path
 	Cost 		cpu_run_cost;
 	Cost 		disk_run_cost;
 	Cost 		cpu_per_tuple;
+	Cost 		qual_cost;
 	int			tuples;
 	double		pages;
 	double		spc_seq_page_cost;
@@ -2209,6 +2210,7 @@ typedef struct HashPath
 	Cost		cpu_tuple_cost;
 	double		inner_path_rows;
 	Cost		hashcpu_cost;
+	Cost 		hashprobe_cost;
 	double		outer_path_rows;
 	double 		innerpages;
 	double		outerpages;
@@ -3432,7 +3434,8 @@ typedef struct JoinCostWorkspace
 	int			num_hashclauses;
 	Cost		cpu_tuple_cost;
 	Cardinality	inner_path_rows;
-	double		hashcpu_cost;
+	Cost		hashcpu_cost;
+	Cost		hashprobe_cost;
 	Cardinality	outer_path_rows;
 	double 		innerpages;
 	double		outerpages;

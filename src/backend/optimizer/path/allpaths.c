@@ -4626,16 +4626,16 @@ print_path(PlannerInfo *root, Path *path, int indent)
 		for (i = 0; i < indent; i++)
 			printf("\t");
 		printf("  details: ");
-		printf("cpu_run_cost=%.2f disk_run_cost=%.2f tuples=%d cpu_per_tuple=%.2f pages=%.6f spc_seq_page_cost=%.2f target_per_tuple=%.6f\n",
-			   path->cpu_run_cost, path->disk_run_cost, path->tuples, path->cpu_per_tuple, path->pages, path->spc_seq_page_cost, path->pathtarget->cost.per_tuple);
+		printf("cpu_run_cost=%lf disk_run_cost=%lf tuples=%d qual_cost=%lf cpu_per_tuple=%lf pages=%lf spc_seq_page_cost=%lf target_per_tuple=%lf\n",
+			   path->cpu_run_cost, path->disk_run_cost, path->tuples, path->qual_cost, path->cpu_per_tuple, path->pages, path->spc_seq_page_cost, path->pathtarget->cost.per_tuple);
 	}
 	/* BitmapHeapScan */ 
 	if (path->T != 0 && path->cost_per_page != 0) {
 		for (i = 0; i < indent; i++)
 			printf("\t");
 		printf("  details: ");
-		printf("cpu_run_cost=%.2f tuples=%d cpu_per_tuple=%.2f target_per_tuple=%.6f pages=%.6f spc_seq_page_cost=%.2f spc_random_page_cost=%.2f T=%.2f index_total_cost=%.6f cost_per_page=%.2f\n",
-			   path->cpu_run_cost, path->tuples, path->cpu_per_tuple, path->pathtarget->cost.per_tuple, path->pages, path->spc_seq_page_cost, path->spc_random_page_cost, path->T, path->indexTotalCost, path->cost_per_page);
+		printf("cpu_run_cost=%lf tuples=%d cpu_per_tuple=%lf target_per_tuple=%lf qual_cost=%lf pages=%lf spc_seq_page_cost=%lf spc_random_page_cost=%lf T=%lf index_total_cost=%lf cost_per_page=%lf\n",
+			   path->cpu_run_cost, path->tuples, path->cpu_per_tuple, path->pathtarget->cost.per_tuple, path->qual_cost, path->pages, path->spc_seq_page_cost, path->spc_random_page_cost, path->T, path->indexTotalCost, path->cost_per_page);
 	}
 	/* IdxScan */ 
 	if (IsA(path, IndexPath)) {
@@ -4643,7 +4643,7 @@ print_path(PlannerInfo *root, Path *path, int indent)
 					
 		for (i = 0; i < indent; i++) printf("\t");
 		printf("  details: ");
-		printf("selectivity=%.4f tuples_fetched=%.0f index_startup_cost=%.2f index_total_cost=%.2f cpu_per_tuple=%.2f min_IO_cost=%.2f max_IO_cost=%.2f index_correlation=%.2f pages_fetched=%.0f c^2=%.5f\n",
+		printf("selectivity=%lf tuples_fetched=%lf index_startup_cost=%lf index_total_cost=%lf cpu_per_tuple=%lf min_IO_cost=%lf max_IO_cost=%lf index_correlation=%lf pages_fetched=%lf c^2=%lf\n",
 			ip->indexselectivity, ip->tuples_fetched, ip->indexstartupcost, ip->indextotalcost, ip->cpu_per_tuple,
 			ip->min_IO_cost, ip->max_IO_cost, ip->indexcorrelation, ip->pages_fetched, ip->csquared);
 	}
@@ -4656,7 +4656,7 @@ print_path(PlannerInfo *root, Path *path, int indent)
 		
 		for (i = 0; i < indent; i++) printf("\t");
 		printf("  details: ");
-		printf("comparison_cost=%.3f cpu_operator_cost=%.4f N=%d input_startup_cost=%.2f\n", comparison_cost, cpu_operator_cost, gmp->num_workers + 1, gmp->input_startup_cost);
+		printf("comparison_cost=%lf cpu_operator_cost=%lf N=%d input_startup_cost=%lf\n", comparison_cost, cpu_operator_cost, gmp->num_workers + 1, gmp->input_startup_cost);
 	}
 	if (join)
 	{
@@ -4670,7 +4670,7 @@ print_path(PlannerInfo *root, Path *path, int indent)
 			for (i = 0; i < indent; i++)
 				printf("\t");
 			printf("  details: ");
-			printf("sortouter=%d sortinner=%d materializeinner=%d initial_run_cost=%.2f initial_startup_cost=%.2f inner_run_cost=%.2f inner_scan_cost=%.2f inner_startup_cost=%.2f outer_scan_cost=%.2f outer_startup_cost=%.2f outerendsel=%.6f outerstartsel=%.6f innerendsel=%.6f innerstartsel=%.6f outer_rows=%.2f inner_rows=%.2f outer_skip_rows=%.2f inner_skip_rows=%.2f\n",
+			printf("sortouter=%d sortinner=%d materializeinner=%d initial_run_cost=%lf initial_startup_cost=%lf inner_run_cost=%lf inner_scan_cost=%lf inner_startup_cost=%lf outer_scan_cost=%lf outer_startup_cost=%lf outerendsel=%lf outerstartsel=%lf innerendsel=%lf innerstartsel=%lf outer_rows=%lf inner_rows=%lf outer_skip_rows=%lf inner_skip_rows=%lf\n",
 				   ((mp->outersortkeys) ? 1 : 0),
 				   ((mp->innersortkeys) ? 1 : 0),
 				   ((mp->materialize_inner) ? 1 : 0), mp->initial_run_cost, mp->initial_startup_cost, mp->inner_run_cost, mp->inner_scan_cost, mp->inner_startup_cost, mp->outer_scan_cost, mp->outer_startup_cost, mp->outerendsel, mp->outerstartsel, mp->innerendsel, mp->innerstartsel, mp->outer_rows, mp->inner_rows, mp->outer_skip_rows, mp->inner_skip_rows);
@@ -4681,7 +4681,7 @@ print_path(PlannerInfo *root, Path *path, int indent)
 			for (i = 0; i < indent; i++)
 				printf("\t");
 			printf("  details: ");
-			printf("initial_startup_cost=%.2f initial_run_cost=%.2f inner_run_cost=%.2f inner_rescan_run_cost=%.2f inner_rescan_start_cost=%.2f inner_path_startup=%.2f outer_rows=%.2f outer_path_startup=%.2f outer_path_run=%.2f\n",
+			printf("initial_startup_cost=%lf initial_run_cost=%lf inner_run_cost=%lf inner_rescan_run_cost=%lf inner_rescan_start_cost=%lf inner_path_startup=%lf outer_rows=%lf outer_path_startup=%lf outer_path_run=%lf\n",
 				   np->initial_startup_cost, np->initial_run_cost, np->inner_run_cost, np->inner_rescan_run_cost, np->inner_rescan_start_cost, np->inner_path_startup, np->outer_rows, np->outer_path_startup, np->outer_path_run);
 		} 
 		/* HashJoin */
@@ -4690,7 +4690,7 @@ print_path(PlannerInfo *root, Path *path, int indent)
 			for (i = 0; i < indent; i++)
 				printf("\t");
 			printf("  details: ");
-			printf("initial_startup_cost=%.2f initial_run_cost=%.2f outer_path_startup=%.2f outer_path_total=%.2f inner_path_startup=%.2f inner_path_total=%.2f cpu_operator_cost=%.5f num_hashclauses=%d cpu_tuple_cost=%.2f inner_path_rows=%.2f hashcpu_cost=%.2f outer_path_rows=%.2f innerpages=%.2f outerpages=%.2f seqpage_cost=%.6f\n",
+			printf("initial_startup_cost=%lf initial_run_cost=%lf outer_path_startup=%lf outer_path_total=%lf inner_path_startup=%lf inner_path_total=%lf cpu_operator_cost=%lf num_hashclauses=%d cpu_tuple_cost=%lf inner_path_rows=%lf hashcpu_cost=%lf outer_path_rows=%lf innerpages=%lf outerpages=%lf seqpage_cost=%lf\n",
 				   hp->initial_startup_cost, hp->initial_run_cost, hp->outer_path_startup, hp->outer_path_total, hp->inner_path_startup, hp->inner_path_total, hp->cpu_operator_cost, hp->num_hashclauses, hp->cpu_tuple_cost, hp->inner_path_rows, hp->hashcpu_cost, hp->outer_path_rows, hp->innerpages, hp->outerpages, hp->seqpage_cost);
 		}
 

@@ -314,6 +314,9 @@ cost_seqscan(Path *path, PlannerInfo *root,
 	startup_cost += path->pathtarget->cost.startup;
 	cpu_run_cost += path->pathtarget->cost.per_tuple * path->rows;
 
+	/* Save intermediate results to the path struct */
+	path->qual_cost = path->pathtarget->cost.per_tuple * path->rows;
+
 	/* Adjust costing for parallelism, if used. */
 	if (path->parallel_workers > 0)
 	{
@@ -342,7 +345,6 @@ cost_seqscan(Path *path, PlannerInfo *root,
 
 	path->startup_cost = startup_cost;
 	path->total_cost = startup_cost + cpu_run_cost + disk_run_cost;
-
 }
 
 /*
@@ -1089,6 +1091,8 @@ cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
 			* sqrt(pages_fetched / T);
 	else
 		cost_per_page = spc_random_page_cost;
+	
+	/* Save intermediate results to the path struct */
 	path->spc_random_page_cost = spc_random_page_cost;
 	path->spc_seq_page_cost = spc_seq_page_cost;
 	path->cost_per_page = cost_per_page;
@@ -1132,6 +1136,9 @@ cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
 	/* tlist eval costs are paid per output row, not per tuple scanned */
 	startup_cost += path->pathtarget->cost.startup;
 	run_cost += path->pathtarget->cost.per_tuple * path->rows;
+	
+	/* Save intermediate results to the path struct */
+	path->qual_cost = path->pathtarget->cost.per_tuple * path->rows;
 
 	path->startup_cost = startup_cost;
 	path->total_cost = startup_cost + run_cost;
@@ -3038,6 +3045,16 @@ initial_cost_nestloop(PlannerInfo *root, JoinCostWorkspace *workspace,
 				&inner_rescan_start_cost,
 				&inner_rescan_total_cost);
 
+	/* initialize */
+	workspace->outer_path_startup = 0;
+	workspace->inner_path_startup = 0;
+	workspace->inner_rescan_start_cost = 0;
+	workspace->outer_path_run = 0;
+	workspace->outer_rows = 0;
+	workspace->inner_run_cost = 0;
+	workspace->inner_rescan_run_cost = 0;
+
+
 	/* cost of source data */
 
 	/*
@@ -3958,6 +3975,19 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	startup_cost += outer_path->startup_cost;
 	run_cost += outer_path->total_cost - outer_path->startup_cost;
 	startup_cost += inner_path->total_cost;
+
+	/* initialize */
+	workspace->outer_path_startup = 0;
+	workspace->outer_path_total = 0;
+	workspace->inner_path_startup = 0;
+	workspace->inner_path_total = 0;
+	workspace->cpu_operator_cost = 0;
+	workspace->cpu_tuple_cost = 0;
+	workspace->num_hashclauses = 0;
+	workspace->inner_path_rows = 0;
+	workspace->hashcpu_cost = 0;
+	workspace->outer_path_rows = 0;
+	
 	
 	/* Save intermediate results to the JoinCostWorkspace struct */
 	workspace->outer_path_startup = outer_path->startup_cost;
@@ -3985,9 +4015,11 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	workspace->inner_path_rows = inner_path_rows;
 	workspace->hashcpu_cost = hashcpu_cost;
 
+
 	run_cost += cpu_operator_cost * num_hashclauses * outer_path_rows;
 
 	workspace->outer_path_rows = outer_path_rows;
+	workspace->hashprobe_cost = cpu_operator_cost * num_hashclauses * outer_path_rows;
 	
 	/*
 	 * If this is a parallel hash build, then the value we have for
@@ -4325,6 +4357,7 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 	path->cpu_tuple_cost = workspace->cpu_tuple_cost;
 	path->inner_path_rows = workspace->inner_path_rows;
 	path->hashcpu_cost = workspace->hashcpu_cost;
+	path->hashprobe_cost = workspace->hashprobe_cost;
 	path->outer_path_rows = workspace->outer_path_rows;
 	path->innerpages = workspace->innerpages;
 	path->outerpages = workspace->outerpages;

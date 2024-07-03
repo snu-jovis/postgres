@@ -3075,7 +3075,7 @@ initial_cost_nestloop(PlannerInfo *root, JoinCostWorkspace *workspace,
 	
 	/* Save intermediate results to the JoinCostWorkSpace struct */
 	workspace->inner_rescan_start_cost = inner_rescan_start_cost;
-	workspace->outer_path_run = run_cost;
+	workspace->outer_path_run = outer_path->total_cost - outer_path->startup_cost;
 	workspace->outer_rows = outer_path_rows -1;
 
 	inner_run_cost = inner_path->total_cost - inner_path->startup_cost;
@@ -3093,8 +3093,8 @@ initial_cost_nestloop(PlannerInfo *root, JoinCostWorkspace *workspace,
 		 */
 
 		/* Save private data for final_cost_nestloop */
-		// workspace->inner_run_cost = inner_run_cost;
-		// workspace->inner_rescan_run_cost = inner_rescan_run_cost;
+		workspace->inner_run_cost = inner_run_cost;
+		workspace->inner_rescan_run_cost = inner_rescan_run_cost;
 	}
 	else
 	{
@@ -3102,10 +3102,11 @@ initial_cost_nestloop(PlannerInfo *root, JoinCostWorkspace *workspace,
 		run_cost += inner_run_cost;
 		if (outer_path_rows > 1)
 			run_cost += (outer_path_rows - 1) * inner_rescan_run_cost;
+		/* Save private data for final_cost_nestloop */
+		workspace->inner_run_cost = inner_run_cost;
+		workspace->inner_rescan_run_cost = inner_rescan_run_cost;
 	}
-	/* Save private data for final_cost_nestloop */
-	workspace->inner_run_cost = inner_run_cost;
-	workspace->inner_rescan_run_cost = inner_rescan_run_cost;
+
 	
 	/* CPU costs left for later */
 

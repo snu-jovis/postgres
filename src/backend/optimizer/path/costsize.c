@@ -4123,6 +4123,7 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 	Selectivity innerbucketsize;
 	Selectivity innermcvfreq;
 	ListCell   *hcl;
+	Cost		hash_qual_eval_cost;
 
 	/* Mark the path with the correct row estimate */
 	if (path->jpath.path.param_info)
@@ -4297,6 +4298,12 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 		run_cost += hash_qual_cost.per_tuple *
 			(outer_path_rows - outer_matched_rows) *
 			clamp_row_est(inner_path_rows / virtualbuckets) * 0.05;
+		
+		/* Save intermediate results to the path struct */
+		hash_qual_eval_cost = hash_qual_cost.per_tuple * outer_matched_rows *
+			clamp_row_est(inner_path_rows * innerbucketsize * inner_scan_frac) * 0.5 + hash_qual_cost.per_tuple *
+			(outer_path_rows - outer_matched_rows) *
+			clamp_row_est(inner_path_rows / virtualbuckets) * 0.05;
 
 		/* Get # of tuples that will pass the basic join */
 		if (path->jpath.jointype == JOIN_ANTI)
@@ -4318,6 +4325,10 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 		 */
 		startup_cost += hash_qual_cost.startup;
 		run_cost += hash_qual_cost.per_tuple * outer_path_rows *
+			clamp_row_est(inner_path_rows * innerbucketsize) * 0.5;
+		
+		/* Save intermediate results to the path struct */
+		hash_qual_eval_cost = hash_qual_cost.per_tuple * outer_path_rows *
 			clamp_row_est(inner_path_rows * innerbucketsize) * 0.5;
 
 		/*
@@ -4362,6 +4373,9 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 	path->innerpages = workspace->innerpages;
 	path->outerpages = workspace->outerpages;
 	path->seqpage_cost = workspace->seqpage_cost;
+	path->hashjointuples = hashjointuples;
+	path->cpu_per_tuple = cpu_per_tuple;
+	path->hash_qual_eval_cost = hash_qual_eval_cost;
 }
 
 

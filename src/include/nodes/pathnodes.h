@@ -2217,6 +2217,9 @@ typedef struct HashPath
 	Cost		seqpage_cost;
 	Cost 		initial_startup_cost;
 	Cost		initial_run_cost;
+	double 		hashjointuples;
+	Cost	    cpu_per_tuple;
+	Cost		hash_qual_eval_cost;
 } HashPath;
 
 /*

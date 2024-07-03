@@ -4690,8 +4690,8 @@ print_path(PlannerInfo *root, Path *path, int indent)
 			for (i = 0; i < indent; i++)
 				printf("\t");
 			printf("  details: ");
-			printf("initial_startup_cost=%lf initial_run_cost=%lf outer_path_startup=%lf outer_path_total=%lf inner_path_startup=%lf inner_path_total=%lf cpu_operator_cost=%lf num_hashclauses=%d cpu_tuple_cost=%lf inner_path_rows=%lf hashcpu_cost=%lf outer_path_rows=%lf innerpages=%lf outerpages=%lf seqpage_cost=%lf\n",
-				   hp->initial_startup_cost, hp->initial_run_cost, hp->outer_path_startup, hp->outer_path_total, hp->inner_path_startup, hp->inner_path_total, hp->cpu_operator_cost, hp->num_hashclauses, hp->cpu_tuple_cost, hp->inner_path_rows, hp->hashcpu_cost, hp->outer_path_rows, hp->innerpages, hp->outerpages, hp->seqpage_cost);
+			printf("initial_startup_cost=%lf initial_run_cost=%lf outer_path_startup=%lf outer_path_total=%lf inner_path_startup=%lf inner_path_total=%lf cpu_operator_cost=%lf num_hashclauses=%d cpu_tuple_cost=%lf inner_path_rows=%lf hashcpu_cost=%lf outer_path_rows=%lf innerpages=%lf outerpages=%lf seqpage_cost=%lf hashjointuples=%lf cpu_per_tuple=%lf hash_qual_eval_cost=%lf\n",
+				   hp->initial_startup_cost, hp->initial_run_cost, hp->outer_path_startup, hp->outer_path_total, hp->inner_path_startup, hp->inner_path_total, hp->cpu_operator_cost, hp->num_hashclauses, hp->cpu_tuple_cost, hp->inner_path_rows, hp->hashcpu_cost, hp->outer_path_rows, hp->innerpages, hp->outerpages, hp->seqpage_cost, hp->hashjointuples, hp->cpu_per_tuple, hp->hash_qual_eval_cost);
 		}
 
 		for (i = 0; i < indent; i++)

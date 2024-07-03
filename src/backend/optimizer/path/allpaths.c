@@ -4670,10 +4670,10 @@ print_path(PlannerInfo *root, Path *path, int indent)
 			for (i = 0; i < indent; i++)
 				printf("\t");
 			printf("  details: ");
-			printf("sortouter=%d sortinner=%d materializeinner=%d initial_run_cost=%lf initial_startup_cost=%lf inner_run_cost=%lf inner_scan_cost=%lf inner_startup_cost=%lf outer_scan_cost=%lf outer_startup_cost=%lf outerendsel=%lf outerstartsel=%lf innerendsel=%lf innerstartsel=%lf outer_rows=%lf inner_rows=%lf outer_skip_rows=%lf inner_skip_rows=%lf\n",
+			printf("sortouter=%d sortinner=%d materializeinner=%d initial_run_cost=%lf initial_startup_cost=%lf inner_run_cost=%lf inner_scan_cost=%lf inner_startup_cost=%lf outer_run_cost=%lf outer_scan_cost=%lf outer_startup_cost=%lf outerendsel=%lf outerstartsel=%lf innerendsel=%lf innerstartsel=%lf outer_rows=%lf inner_rows=%lf outer_skip_rows=%lf inner_skip_rows=%lf\n",
 				   ((mp->outersortkeys) ? 1 : 0),
 				   ((mp->innersortkeys) ? 1 : 0),
-				   ((mp->materialize_inner) ? 1 : 0), mp->initial_run_cost, mp->initial_startup_cost, mp->inner_run_cost, mp->inner_scan_cost, mp->inner_startup_cost, mp->outer_scan_cost, mp->outer_startup_cost, mp->outerendsel, mp->outerstartsel, mp->innerendsel, mp->innerstartsel, mp->outer_rows, mp->inner_rows, mp->outer_skip_rows, mp->inner_skip_rows);
+				   ((mp->materialize_inner) ? 1 : 0), mp->initial_run_cost, mp->initial_startup_cost, mp->inner_run_cost, mp->inner_scan_cost, mp->inner_startup_cost, mp->outer_run_cost, mp->outer_scan_cost, mp->outer_startup_cost, mp->outerendsel, mp->outerstartsel, mp->innerendsel, mp->innerstartsel, mp->outer_rows, mp->inner_rows, mp->outer_skip_rows, mp->inner_skip_rows);
 		} 
 		/* NestLoop */
 		else if(IsA(path, NestPath)){

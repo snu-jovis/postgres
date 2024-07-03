@@ -2173,6 +2173,7 @@ typedef struct MergePath
 	Selectivity innerstartsel;
 	Selectivity innerendsel;
 	Cost		outer_scan_cost;
+	Cost		outer_run_cost;
 	Cost		outer_startup_cost;
 	Cost		inner_scan_cost;
 	Cost		inner_startup_cost;
@@ -3421,6 +3422,7 @@ typedef struct JoinCostWorkspace
 	Cost 		inner_startup_cost;
 	Cost		outer_scan_cost;
 	Cost		inner_scan_cost;
+	Cost		outer_run_cost;
 
 	/* private for cost_hashjoin code */
 	int			numbuckets;

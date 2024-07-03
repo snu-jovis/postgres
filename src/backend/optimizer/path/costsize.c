@@ -3355,6 +3355,7 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	double		outer_path_rows = outer_path->rows;
 	double		inner_path_rows = inner_path->rows;
 	Cost		inner_run_cost;
+	Cost		outer_run_cost;
 	double		outer_rows,
 				inner_rows,
 				outer_skip_rows,
@@ -3491,11 +3492,15 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 			* outerstartsel;
 		run_cost += (sort_path.total_cost - sort_path.startup_cost)
 			* (outerendsel - outerstartsel);
+
+		outer_run_cost = (sort_path.total_cost - sort_path.startup_cost)
+			* (outerendsel - outerstartsel);
 		
 		/* Save intermediate results to the JoinCostWorkSpace struct */
 		workspace->outer_startup_cost = sort_path.startup_cost;
 		workspace->outer_scan_cost = (sort_path.total_cost - sort_path.startup_cost)
 			* outerstartsel;
+		workspace->outer_run_cost = outer_run_cost;
 	}
 	else
 	{
@@ -3504,11 +3509,15 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 			* outerstartsel;
 		run_cost += (outer_path->total_cost - outer_path->startup_cost)
 			* (outerendsel - outerstartsel);
+
+		outer_run_cost = (outer_path->total_cost - outer_path->startup_cost)
+			* (outerendsel - outerstartsel);
 		
 		/* Save intermediate results to the JoinCostWorkSpace struct */
 		workspace->outer_startup_cost = outer_path->startup_cost;
 		workspace->outer_scan_cost = (outer_path->total_cost - outer_path->startup_cost)
 			* outerstartsel;
+		workspace->outer_run_cost = outer_run_cost; 
 	}
 
 	if (innersortkeys)			/* do we need to sort inner? */
@@ -3858,6 +3867,7 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 	path->initial_startup_cost = workspace->startup_cost;
 	path->inner_run_cost= workspace->inner_run_cost;
 	path->inner_startup_cost = workspace->inner_startup_cost;
+	path->outer_run_cost = workspace->outer_run_cost;
 	path->outer_startup_cost = workspace->outer_startup_cost;
 	path->inner_scan_cost = workspace->inner_scan_cost;
 	path->outer_scan_cost = workspace->outer_scan_cost;

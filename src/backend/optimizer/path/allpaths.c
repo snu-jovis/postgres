@@ -4681,8 +4681,8 @@ print_path(PlannerInfo *root, Path *path, int indent)
 			for (i = 0; i < indent; i++)
 				printf("\t");
 			printf("  details: ");
-			printf("initial_startup_cost=%lf initial_run_cost=%lf inner_run_cost=%lf inner_rescan_run_cost=%lf inner_rescan_start_cost=%lf inner_path_startup=%lf outer_rows=%lf outer_path_startup=%lf outer_path_run=%lf\n",
-				   np->initial_startup_cost, np->initial_run_cost, np->inner_run_cost, np->inner_rescan_run_cost, np->inner_rescan_start_cost, np->inner_path_startup, np->outer_rows, np->outer_path_startup, np->outer_path_run);
+			printf("initial_startup_cost=%lf initial_run_cost=%lf inner_run_cost=%lf inner_rescan_run_cost=%lf inner_rescan_start_cost=%lf inner_path_startup=%lf outer_rows=%lf outer_path_startup=%lf outer_path_run=%lf ntuples=%lf cpu_per_tuple=%lf matched_outer_tuple_cost=%lf unmatched_outer_tuple_cost=%lf inner_scan_cost=%lf\n",
+				   np->initial_startup_cost, np->initial_run_cost, np->inner_run_cost, np->inner_rescan_run_cost, np->inner_rescan_start_cost, np->inner_path_startup, np->outer_rows, np->outer_path_startup, np->outer_path_run, np->ntuples, np->cpu_per_tuple, np->matched_outer_tuple_cost, np->unmatched_outer_tuple_cost, np->inner_scan_cost);
 		} 
 		/* HashJoin */
 		else if(IsA(path, HashPath)){

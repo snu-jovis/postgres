@@ -2119,6 +2119,11 @@ typedef struct NestPath
 	Cost 		outer_path_startup;
 	Cost 		initial_run_cost;
 	Cost		initial_startup_cost;
+	Cost		cpu_per_tuple;
+	double		ntuples;
+	Cost		matched_outer_tuple_cost;
+	Cost		unmatched_outer_tuple_cost;
+	Cost		inner_scan_cost;
 } NestPath;
 
 /*

@@ -3137,8 +3137,12 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 	Cost		startup_cost = workspace->startup_cost;
 	Cost		run_cost = workspace->run_cost;
 	Cost		cpu_per_tuple;
+	Cost		inner_scan_cost;
 	QualCost	restrict_qual_cost;
 	double		ntuples;
+	Cost 		unmatched_outer_tuple_cost;
+	Cost		matched_outer_tuple_cost;
+
 
 	/* Protect some assumptions below that rowcounts aren't zero */
 	if (outer_path_rows <= 0)
@@ -3228,9 +3232,13 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 			 * inner_rescan_run_cost for additional ones.
 			 */
 			run_cost += inner_run_cost * inner_scan_frac;
+			inner_scan_cost = inner_run_cost * inner_scan_frac;
 			if (outer_matched_rows > 1)
+			{
 				run_cost += (outer_matched_rows - 1) * inner_rescan_run_cost * inner_scan_frac;
-
+				matched_outer_tuple_cost = (outer_matched_rows - 1) * inner_rescan_run_cost * inner_scan_frac;
+			}
+			
 			/*
 			 * Add the cost of inner-scan executions for unmatched outer rows.
 			 * We estimate this as the same cost as returning the first tuple
@@ -3239,6 +3247,7 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 			 */
 			run_cost += outer_unmatched_rows *
 				inner_rescan_run_cost / inner_path_rows;
+			unmatched_outer_tuple_cost = outer_unmatched_rows * inner_rescan_run_cost / inner_path_rows;
 
 			/*
 			 * We won't be evaluating any quals at all for unmatched rows, so
@@ -3265,18 +3274,24 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 
 			/* Now add the forced full scan, and decrement appropriate count */
 			run_cost += inner_run_cost;
+			inner_scan_cost = inner_run_cost;
+
 			if (outer_unmatched_rows >= 1)
 				outer_unmatched_rows -= 1;
 			else
 				outer_matched_rows -= 1;
 
 			/* Add inner run cost for additional outer tuples having matches */
-			if (outer_matched_rows > 0)
+			if (outer_matched_rows > 0){
 				run_cost += outer_matched_rows * inner_rescan_run_cost * inner_scan_frac;
-
+				matched_outer_tuple_cost = outer_matched_rows * inner_rescan_run_cost * inner_scan_frac;
+			}
+				
 			/* Add inner run cost for additional unmatched outer tuples */
-			if (outer_unmatched_rows > 0)
+			if (outer_unmatched_rows > 0){
 				run_cost += outer_unmatched_rows * inner_rescan_run_cost;
+				unmatched_outer_tuple_cost = outer_unmatched_rows * inner_rescan_run_cost;
+			}
 		}
 	}
 	else
@@ -3309,8 +3324,14 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 	path->outer_rows = workspace->outer_rows;
 	path->outer_path_run = workspace->outer_path_run;
 	path->inner_path_startup = workspace->inner_path_startup;
-	path->outer_path_startup = workspace->outer_path_startup;	
+	path->outer_path_startup = workspace->outer_path_startup;
+	path->ntuples = ntuples;
+	path->cpu_per_tuple = cpu_per_tuple;
+	path->matched_outer_tuple_cost = matched_outer_tuple_cost;
+	path->unmatched_outer_tuple_cost = unmatched_outer_tuple_cost;	
+	path->inner_scan_cost = inner_scan_cost;
 }
+
 
 /*
  * initial_cost_mergejoin

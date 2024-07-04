@@ -3844,10 +3844,13 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 		path->materialize_inner = false;
 
 	/* Charge the right incremental cost for the chosen case */
-	if (path->materialize_inner)
+	if (path->materialize_inner) {
 		run_cost += mat_inner_cost;
-	else
+		path->mat_inner_cost = mat_inner_cost;
+	} else {
 		run_cost += bare_inner_cost;
+		path->bare_inner_cost = bare_inner_cost;
+	}
 
 	/* CPU costs */
 
@@ -3859,6 +3862,14 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 	startup_cost += merge_qual_cost.startup;
 	startup_cost += merge_qual_cost.per_tuple *
 		(outer_skip_rows + inner_skip_rows * rescanratio);
+
+	Cost merge_init_eval_cost = merge_qual_cost.startup + merge_qual_cost.per_tuple *
+		(outer_skip_rows + inner_skip_rows * rescanratio);
+	
+	Cost merge_eval_cost = merge_qual_cost.per_tuple *
+		((outer_rows - outer_skip_rows) +
+		 (inner_rows - inner_skip_rows) * rescanratio);
+	
 	run_cost += merge_qual_cost.per_tuple *
 		((outer_rows - outer_skip_rows) +
 		 (inner_rows - inner_skip_rows) * rescanratio);
@@ -3884,22 +3895,16 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 	path->jpath.path.total_cost = startup_cost + run_cost;
 
 	/* Save intermediate results to the path struct */
+	path->mergejointuples = mergejointuples;
+	path->merge_init_eval_cost = merge_init_eval_cost;
+	path->merge_eval_cost = merge_eval_cost;
 	path->initial_run_cost = workspace->run_cost;
 	path->initial_startup_cost = workspace->startup_cost;
-	path->inner_run_cost= workspace->inner_run_cost;
 	path->inner_startup_cost = workspace->inner_startup_cost;
 	path->outer_run_cost = workspace->outer_run_cost;
 	path->outer_startup_cost = workspace->outer_startup_cost;
 	path->inner_scan_cost = workspace->inner_scan_cost;
 	path->outer_scan_cost = workspace->outer_scan_cost;
-	path->outerendsel = workspace->outerendsel;
-	path->outerstartsel = workspace->outerstartsel;
-	path->innerendsel = workspace->innerendsel;
-	path->innerstartsel = workspace->innerstartsel;
-	path->outer_rows = workspace->outer_rows;
-	path->inner_rows = workspace->inner_rows;
-	path->outer_skip_rows = workspace->outer_skip_rows;
-	path->inner_skip_rows = workspace->inner_skip_rows;
 }
 
 /*

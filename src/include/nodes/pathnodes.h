@@ -2173,20 +2173,16 @@ typedef struct MergePath
 	/* Variables to store intermediate calculation results */
 	Cost		initial_run_cost;
 	Cost		initial_startup_cost;
-	Selectivity outerstartsel;
-	Selectivity outerendsel;
-	Selectivity innerstartsel;
-	Selectivity innerendsel;
 	Cost		outer_scan_cost;
 	Cost		outer_run_cost;
 	Cost		outer_startup_cost;
 	Cost		inner_scan_cost;
 	Cost		inner_startup_cost;
-	Cost		inner_run_cost;
-	Cardinality outer_rows;
-	Cardinality inner_rows;
-	Cardinality outer_skip_rows;
-	Cardinality inner_skip_rows;
+	double		mergejointuples;
+	Cost		bare_inner_cost;
+	Cost		mat_inner_cost;
+	Cost		merge_eval_cost;
+	Cost 		merge_init_eval_cost;
 } MergePath;
 
 

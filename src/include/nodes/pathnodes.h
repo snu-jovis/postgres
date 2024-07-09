@@ -1629,6 +1629,32 @@ typedef struct Path
 	Cost		startup_cost;	/* cost expended before fetching any tuples */
 	Cost		total_cost;		/* total cost (assuming all tuples fetched) */
 
+	/* Jovis Cost for SCAN */
+	double		loop_count;
+
+	Cost		index_scan_cost;
+	double		index_correlation;
+	Selectivity	index_selectivity;
+
+	Cost		cpu_run_cost;
+	Cost		cpu_per_tuple;
+	Cardinality	baserel_tuples;
+	double		tuples_fetched;
+	Cost		pathtarget_cost;
+
+	Cost		disk_run_cost;
+	Cost		max_io_cost;
+	Cost		min_io_cost;
+	double		spc_seq_page_cost;
+	double		spc_random_page_cost;
+	BlockNumber	baserel_pages;
+	double		pages_fetched;
+	Cost		cost_per_page;
+
+	/* Jovis Costs for JOIN */
+	Cost		initial_startup_cost;
+	Cost		initial_run_cost;
+
 	/* sort ordering of path's output; a List of PathKey nodes; see above */
 	List	   *pathkeys;
 } Path;
@@ -3302,6 +3328,19 @@ typedef struct JoinCostWorkspace
 	int			numbuckets;
 	int			numbatches;
 	Cardinality inner_rows_total;
+
+	/* Jovis Cost */
+	Cost		initial_startup_cost;
+	Cost		initial_total_cost;
+	Cost		initial_run_cost;
+
+	Cost		outer_startup_cost;
+	Cost		outer_run_cost;
+	Cost		inner_startup_cost;
+	Cost		inner_run_cost;
+
+	double		outer_path_rows;
+	Cost		inner_rescan_start_cost;
 } JoinCostWorkspace;
 
 /*

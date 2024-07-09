@@ -320,6 +320,16 @@ cost_seqscan(Path *path, PlannerInfo *root,
 
 	path->startup_cost = startup_cost;
 	path->total_cost = startup_cost + cpu_run_cost + disk_run_cost;
+
+	/* Jovis Cost */
+	path->cpu_run_cost = cpu_run_cost;
+	path->cpu_per_tuple = cpu_per_tuple;
+	path->baserel_tuples = baserel->tuples;
+	path->pathtarget_cost = path->pathtarget->cost.per_tuple;
+
+	path->disk_run_cost = disk_run_cost;
+	path->spc_seq_page_cost = spc_seq_page_cost;
+	path->baserel_pages = baserel->pages;
 }
 
 /*
@@ -661,6 +671,9 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 
 		max_IO_cost = (pages_fetched * spc_random_page_cost) / loop_count;
 
+		/* Jovis Cost */
+		path->path.pages_fetched = pages_fetched;
+
 		/*
 		 * In the perfectly correlated case, the number of pages touched by
 		 * each scan is selectivity * table_size, and we can use the Mackert
@@ -701,6 +714,9 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 
 		/* max_IO_cost is for the perfectly uncorrelated case (csquared=0) */
 		max_IO_cost = pages_fetched * spc_random_page_cost;
+
+		/* Jovis Cost */
+		path->path.pages_fetched = pages_fetched;
 
 		/* min_IO_cost is for the perfectly correlated case (csquared=1) */
 		pages_fetched = ceil(indexSelectivity * (double) baserel->pages);
@@ -790,6 +806,25 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 
 	path->path.startup_cost = startup_cost;
 	path->path.total_cost = startup_cost + run_cost;
+
+	/* Jovis Cost */
+	path->path.loop_count = loop_count;
+
+	path->path.index_scan_cost = indexTotalCost - indexStartupCost;
+	path->path.index_correlation = indexCorrelation;
+	path->path.index_selectivity = indexSelectivity;
+
+	path->path.cpu_run_cost = cpu_run_cost;
+	path->path.cpu_per_tuple = cpu_per_tuple;
+	path->path.tuples_fetched = tuples_fetched;
+	path->path.pathtarget_cost = path->path.pathtarget->cost.per_tuple;
+
+	path->path.disk_run_cost = max_IO_cost + csquared * (min_IO_cost - max_IO_cost);
+	path->path.max_io_cost = max_IO_cost;
+	path->path.min_io_cost = min_IO_cost;
+	path->path.spc_seq_page_cost = spc_seq_page_cost;
+	path->path.spc_random_page_cost = spc_random_page_cost;
+	path->path.baserel_pages = baserel->pages;
 }
 
 /*
@@ -1076,6 +1111,15 @@ cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
 
 	path->startup_cost = startup_cost;
 	path->total_cost = startup_cost + run_cost;
+
+	/* Jovis Cost */
+	path->cpu_run_cost = cpu_run_cost;
+	path->cpu_per_tuple = cpu_per_tuple;
+	path->tuples_fetched = tuples_fetched;
+	path->pathtarget_cost = path->pathtarget->cost.per_tuple;
+
+	path->pages_fetched = pages_fetched;
+	path->cost_per_page = cost_per_page;
 }
 
 /*
@@ -3025,6 +3069,19 @@ initial_cost_nestloop(PlannerInfo *root, JoinCostWorkspace *workspace,
 	workspace->total_cost = startup_cost + run_cost;
 	/* Save private data for final_cost_nestloop */
 	workspace->run_cost = run_cost;
+
+	/* Jovis Cost */
+	workspace->initial_startup_cost = startup_cost;
+	workspace->initial_total_cost = startup_cost + run_cost;
+	workspace->initial_run_cost = run_cost;
+
+	workspace->outer_startup_cost = outer_path->startup_cost;
+	workspace->outer_run_cost = outer_path->total_cost - outer_path->startup_cost;
+	workspace->inner_startup_cost = inner_path->startup_cost;
+	workspace->inner_run_cost = inner_path->total_cost - inner_path->startup_cost;
+
+	workspace->outer_path_rows = outer_path_rows;
+	workspace->inner_rescan_start_cost = inner_rescan_start_cost;
 }
 
 /*
@@ -3209,6 +3266,9 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 
 	path->jpath.path.startup_cost = startup_cost;
 	path->jpath.path.total_cost = startup_cost + run_cost;
+
+	/* Jovis Cost */
+
 }
 
 /*

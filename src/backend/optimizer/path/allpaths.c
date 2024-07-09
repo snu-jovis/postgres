@@ -4626,8 +4626,28 @@ print_path(PlannerInfo *root, Path *path, int indent)
 	{
 		for (i = 0; i < indent; i++)
 			printf("\t");
-		printf("  pathkeys: ");
+		printf(" pathkeys: ");
 		print_pathkeys(path->pathkeys, root->parse->rtable);
+	}
+
+	/* Jovis Cost */
+	if (!strcmp(ptype, "SeqScan")) {
+		for (i = 0; i < indent; i++)
+			printf("\t");
+		printf(" details: ");
+		printf("cpu_run_cost=%lf cpu_per_tuple=%lf baserel_tuples=%lf pathtarget_cost=%lf disk_run_cost=%lf spc_seq_page_cost=%lf baserel_pages=%u\n", path->cpu_run_cost, path->cpu_per_tuple, path->baserel_tuples, path->pathtarget_cost, path->disk_run_cost, path->spc_seq_page_cost, path->baserel_pages);
+	}
+	else if (!strcmp(ptype, "IdxScan")) {
+		for (i = 0; i < indent; i++)
+			printf("\t");
+		printf(" details: ");
+		printf("loop_count=%lf index_scan_cost=%lf index_correlation=%lf index_selectivity=%lf cpu_run_cost=%lf cpu_per_tuple=%lf tuples_fetched=%lf pathtarget_cost=%lf disk_run_cost=%lf max_io_cost=%lf min_io_cost=%lf spc_seq_page_cost=%lf spc_random_page_cost=%lf baserel_pages=%u pages_fetched=%lf\n", path->loop_count, path->index_scan_cost, path->index_correlation, path->index_selectivity, path->cpu_run_cost, path->cpu_per_tuple, path->tuples_fetched, path->pathtarget_cost, path->disk_run_cost, path->max_io_cost, path->min_io_cost, path->spc_seq_page_cost, path->spc_random_page_cost, path->baserel_pages, path->pages_fetched);
+	}
+	else if (!strcmp(ptype, "BitmapHeapScan")) {
+		for (i = 0; i < indent; i++)
+			printf("\t");
+		printf(" details: ");
+		printf("cpu_run_cost=%lf cpu_per_tuple=%lf tuples_fetched=%lf pathtarget_cost=%lf pages_fetched=%lf cost_per_page=%lf\n", path->cpu_run_cost, path->cpu_per_tuple, path->tuples_fetched, path->pathtarget_cost, path->pages_fetched, path->cost_per_page);
 	}
 
 	if (join)

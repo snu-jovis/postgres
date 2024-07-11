@@ -1647,38 +1647,23 @@ typedef struct Path
 	Cost		cost_per_page;
 	Cost		indexTotalCost;
 
-	/* hash join */
-	Cost        hashbuild_cost;
-    Cost        hashjoin_cost;
-    Cost        innerbuild_cost;
-    Cost        outerbuild_cost;
-    Cost        hashcpu_cost;
-	Cost		seqpage_cost;
-    double      inner_path_rows_total;
-    int         numbuckets;
-    int         numbatches;
-	int 		innerpages;
-	int			outerpages;
+	/* incremental sort */
+	Cost		group_startup_cost;
+	Cost		group_input_run_cost;
+	Cost		input_startup_cost;
+	Cost		group_run_cost;
+	Cost		group_processing_total_cost;
+	Cost		overhead_cost_per_tuple;
+	Cost		overhead_cost_per_group;
 
-	/* nestloop */
-	Cost		inner_rescan_start_cost;
-	Cost		inner_rescan_total_cost;
-	Cost		inner_run_cost;
-	Cost		inner_rescan_run_cost;
-	double		outer_path_rows;
+	/* material */
+	Cost		input_run_cost;
 
-	/* merge join */
-	double		merge_outer_path_rows;
-	double		merge_inner_path_rows;
-	double		merge_outer_rows;
-	double		merge_inner_rows;
-	double		merge_outer_skip_rows;
-	double		merge_inner_skip_rows;
-	Selectivity merge_outer_start_sel;
-	Selectivity merge_outer_end_sel;
-	Selectivity merge_inner_start_sel;
-	Selectivity merge_inner_end_sel;
-	Cost		merge_inner_run_cost;
+	/* group */
+	Cost 		qual_eval_startup_cost;
+	Cost		qual_eval_total_cost;
+	Cost		group_by_comparison_cost;
+	Cost		input_total_cost;
 } Path;
 
 /* Macro for extracting a path's parameterization relids; beware double eval */
@@ -1950,6 +1935,10 @@ typedef struct AppendPath
 	/* Index of first partial path in subpaths; list_length(subpaths) if none */
 	int			first_partial_path;
 	Cardinality limit_tuples;	/* hard limit on output tuples, or -1 */
+	
+	/* Joivs Cost */
+	Cost		subpath_startup_cost;
+	Cost		subpath_total_run_cost;
 } AppendPath;
 
 #define IS_DUMMY_APPEND(p) \
@@ -2059,6 +2048,8 @@ typedef struct GatherPath
 	Path	   *subpath;		/* path for each worker */
 	bool		single_copy;	/* don't execute path more than once */
 	int			num_workers;	/* number of workers sought to help */
+	Cost 		parallel_setup_cost;
+	Cost 		parallel_communication_cost;
 } GatherPath;
 
 /*
@@ -2071,6 +2062,12 @@ typedef struct GatherMergePath
 	Path	   *subpath;		/* path for each worker */
 	int			num_workers;	/* number of workers sought to help */
 	Cost 		input_startup_cost;
+	Cost 		input_total_cost;
+	Cost		heap_creation_cost;
+	Cost		heap_maintenance_cost;
+	Cost		heap_management_cost;
+	Cost		parallel_setup_cost;
+	Cost		parallel_communication_cost;
 } GatherMergePath;
 
 

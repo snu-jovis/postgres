@@ -4622,7 +4622,7 @@ print_path(PlannerInfo *root, Path *path, int indent)
 	printf(" rows=%.0f cost=%.2f..%.2f\n",
 		   path->rows, path->startup_cost, path->total_cost);
 	/* SeqScan */ 
-	if (path->cpu_run_cost != 0 && path->disk_run_cost != 0) {
+	if (!strcmp(ptype, "SeqScan")) {
 		for (i = 0; i < indent; i++)
 			printf("\t");
 		printf("  details: ");
@@ -4630,7 +4630,7 @@ print_path(PlannerInfo *root, Path *path, int indent)
 			   path->cpu_run_cost, path->disk_run_cost, path->tuples, path->qual_cost, path->cpu_per_tuple, path->pages, path->spc_seq_page_cost, path->pathtarget->cost.per_tuple);
 	}
 	/* BitmapHeapScan */ 
-	if (path->T != 0 && path->cost_per_page != 0) {
+	else if (!strcmp(ptype, "BitmapHeapScan")) {
 		for (i = 0; i < indent; i++)
 			printf("\t");
 		printf("  details: ");
@@ -4638,7 +4638,7 @@ print_path(PlannerInfo *root, Path *path, int indent)
 			   path->cpu_run_cost, path->tuples, path->cpu_per_tuple, path->pathtarget->cost.per_tuple, path->qual_cost, path->pages, path->spc_seq_page_cost, path->spc_random_page_cost, path->T, path->indexTotalCost, path->cost_per_page);
 	}
 	/* IdxScan */ 
-	if (IsA(path, IndexPath)) {
+	else if (!strcmp(ptype, "IdxScan")) {
 		IndexPath   *ip = (IndexPath *) path;
 					
 		for (i = 0; i < indent; i++) printf("\t");
@@ -4647,17 +4647,38 @@ print_path(PlannerInfo *root, Path *path, int indent)
 			ip->indexselectivity, ip->tuples_fetched, ip->indexstartupcost, ip->indextotalcost, ip->cpu_per_tuple,
 			ip->min_IO_cost, ip->max_IO_cost, ip->indexcorrelation, ip->pages_fetched, ip->csquared);
 	}
-	/* GatherMerge */ 
-	if (IsA(path, GatherMergePath)) {
-		GatherMergePath   *gmp = (GatherMergePath *) path;
-		
-		Cost cpu_operator_cost = 0.0025;
-		Cost comparison_cost = 2 * cpu_operator_cost;
-		
+	else if (!strcmp(ptype, "Gather")) {
+		GatherPath   *gp = (GatherPath *) path;
+					
 		for (i = 0; i < indent; i++) printf("\t");
 		printf("  details: ");
-		printf("comparison_cost=%lf cpu_operator_cost=%lf N=%d input_startup_cost=%lf\n", comparison_cost, cpu_operator_cost, gmp->num_workers + 1, gmp->input_startup_cost);
+		printf("subpath_startup_cost=%lf parallel_setup_cost=%lf subpath_run_cost=%lf parallel_communication_cost=%lf\n", gp->subpath->startup_cost, gp->parallel_setup_cost, gp->subpath->total_cost - gp->subpath->startup_cost, gp->parallel_communication_cost);
 	}
+	else if (!strcmp(ptype, "GatherMerge")) {
+		GatherMergePath   *gmp = (GatherMergePath *) path;
+					
+		for (i = 0; i < indent; i++) printf("\t");
+		printf("  details: ");
+		printf("heap_creation_cost=%lf parallel_setup_cost=%lf heap_maintenance_cost=%lf heap_management_cost=%lf parallel_communication_cost=%lf input_total_cost=%lf\n", gmp->heap_creation_cost, gmp->parallel_setup_cost, gmp->heap_maintenance_cost, gmp->heap_management_cost, gmp->parallel_communication_cost, gmp->input_total_cost);
+	} 
+	else if (!strcmp(ptype, "IncrementalSort")) {					
+		for (i = 0; i < indent; i++)
+			printf("\t");
+		printf("  details: ");
+		printf("group_startup_cost=%lf group_input_run_cost=%lf input_startup_cost=%lf group_processing_total_cost=%lf overhead_cost_per_tuple=%lf overhead_cost_per_group=%lf\n", path->group_startup_cost, path->group_input_run_cost, path->input_startup_cost, path->group_processing_total_cost, path->overhead_cost_per_tuple, path->overhead_cost_per_group);
+	}
+	else if (!strcmp(ptype, "Material")) {					
+		for (i = 0; i < indent; i++)
+			printf("\t");
+		printf("  details: ");
+		printf("input_startup_cost=%lf input_run_cost=%lf cpu_run_cost=%lf disk_run_cost=%lf\n", path->input_startup_cost, path->input_run_cost, path->cpu_run_cost, path->disk_run_cost);
+	}
+	else if (!strcmp(ptype, "Group")) {					
+		for (i = 0; i < indent; i++)
+			printf("\t");
+		printf("  details: ");
+		printf("input_startup_cost=%lf qual_eval_startup_cost=%lf input_total_cost=%lf group_by_comparison_cost=%lf qual_eval_total_cost=%lf\n", path->input_startup_cost, path->qual_eval_startup_cost, path->input_total_cost, path->group_by_comparison_cost, path->qual_eval_total_cost);
+	} 
 	if (join)
 	{
 		JoinPath   *jp = (JoinPath *) path;

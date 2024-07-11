@@ -453,6 +453,8 @@ cost_gather(GatherPath *path, PlannerInfo *root,
 	startup_cost += parallel_setup_cost;
 	run_cost += parallel_tuple_cost * path->path.rows;
 
+	path->parallel_setup_cost = parallel_setup_cost;
+	path->parallel_communication_cost = parallel_tuple_cost * path->path.rows;
 	path->path.startup_cost = startup_cost;
 	path->path.total_cost = (startup_cost + run_cost);
 }
@@ -490,6 +492,7 @@ cost_gather_merge(GatherMergePath *path, PlannerInfo *root,
 	if (!enable_gathermerge)
 		startup_cost += disable_cost;
 
+	/* Jovis Cost */
 	path->input_startup_cost = input_startup_cost;
 	/*
 	 * Add one to the number of workers to account for the leader.  This might
@@ -520,6 +523,14 @@ cost_gather_merge(GatherMergePath *path, PlannerInfo *root,
 	 */
 	startup_cost += parallel_setup_cost;
 	run_cost += parallel_tuple_cost * path->path.rows * 1.05;
+	
+	/* Jovis Cost */
+	path->heap_creation_cost = comparison_cost * N * logN;
+	path->heap_maintenance_cost = path->path.rows * comparison_cost * logN;
+	path->heap_management_cost = cpu_operator_cost * path->path.rows;
+	path->parallel_setup_cost = parallel_setup_cost;
+	path->parallel_communication_cost = parallel_tuple_cost * path->path.rows * 1.05;
+	path->input_total_cost = input_total_cost;
 
 	path->path.startup_cost = startup_cost + input_startup_cost;
 	path->path.total_cost = (startup_cost + run_cost + input_total_cost);
@@ -2119,6 +2130,11 @@ cost_incremental_sort(Path *path,
 	startup_cost = group_startup_cost + input_startup_cost +
 		group_input_run_cost;
 
+	/* Jovis Cost */
+	path->group_startup_cost = group_startup_cost;
+	path->group_input_run_cost = group_input_run_cost;
+	path->input_startup_cost = input_startup_cost;
+
 	/*
 	 * After we started producing tuples from the first group, the cost of
 	 * producing all the tuples is given by the cost to finish processing this
@@ -2128,18 +2144,26 @@ cost_incremental_sort(Path *path,
 	run_cost = group_run_cost + (group_run_cost + group_startup_cost) *
 		(input_groups - 1) + group_input_run_cost * (input_groups - 1);
 
+	/* Jovis Cost */	
+	path->group_processing_total_cost = group_run_cost + (group_run_cost + group_startup_cost) *
+		(input_groups - 1) + group_input_run_cost * (input_groups - 1);
+
 	/*
 	 * Incremental sort adds some overhead by itself. Firstly, it has to
 	 * detect the sort groups. This is roughly equal to one extra copy and
 	 * comparison per tuple.
 	 */
 	run_cost += (cpu_tuple_cost + comparison_cost) * input_tuples;
+	/* Jovis Cost */
+	path->overhead_cost_per_tuple = (cpu_tuple_cost + comparison_cost) * input_tuples;
 
 	/*
 	 * Additionally, we charge double cpu_tuple_cost for each input group to
 	 * account for the tuplesort_reset that's performed after each group.
 	 */
 	run_cost += 2.0 * cpu_tuple_cost * input_groups;
+	/* Jovis Cost */
+	path->overhead_cost_per_group = 2.0 * cpu_tuple_cost * input_groups;
 
 	path->rows = input_tuples;
 	path->startup_cost = startup_cost;
@@ -2276,6 +2300,10 @@ cost_append(AppendPath *apath)
 
 	if (apath->subpaths == NIL)
 		return;
+	
+	/* Jovis Cost */
+	Cost subpath_total_startup_cost = 0;
+	Cost subpath_total_run_cost = 0;
 
 	if (!apath->path.parallel_aware)
 	{
@@ -2297,8 +2325,11 @@ cost_append(AppendPath *apath)
 				Path	   *subpath = (Path *) lfirst(l);
 
 				apath->path.rows += subpath->rows;
-				apath->path.total_cost += subpath->total_cost;
+				/* Jovis Cost */
+				subpath_total_run_cost += subpath->total_cost;
 			}
+            apath->path.total_cost = subpath_total_run_cost;
+
 		}
 		else
 		{
@@ -2498,6 +2529,8 @@ cost_material(Path *path,
 	long		work_mem_bytes = work_mem * 1024L;
 
 	path->rows = tuples;
+	path->input_run_cost = input_total_cost - input_startup_cost;
+	path->input_startup_cost = input_startup_cost;
 
 	/*
 	 * Whether spilling or not, charge 2x cpu_operator_cost per tuple to
@@ -2512,7 +2545,9 @@ cost_material(Path *path,
 	 * most plan nodes.
 	 */
 	run_cost += 2 * cpu_operator_cost * tuples;
-
+	/* Jovis Cost */
+	path->cpu_run_cost = 2 * cpu_operator_cost * tuples;
+	
 	/*
 	 * If we will spill to disk, charge at the rate of seq_page_cost per page.
 	 * This cost is assumed to be evenly spread through the plan run phase,
@@ -2524,6 +2559,8 @@ cost_material(Path *path,
 		double		npages = ceil(nbytes / BLCKSZ);
 
 		run_cost += seq_page_cost * npages;
+		/* Jovis Cost */
+		path->disk_run_cost = seq_page_cost * npages;
 	}
 
 	path->startup_cost = startup_cost;
@@ -2966,6 +3003,8 @@ cost_group(Path *path, PlannerInfo *root,
 	double		output_tuples;
 	Cost		startup_cost;
 	Cost		total_cost;
+	Cost 		qual_eval_startup_cost;
+	Cost		qual_eval_total_cost;
 
 	output_tuples = numGroups;
 	startup_cost = input_startup_cost;
@@ -2975,8 +3014,9 @@ cost_group(Path *path, PlannerInfo *root,
 	 * Charge one cpu_operator_cost per comparison per input tuple. We assume
 	 * all columns get compared at most of the tuples.
 	 */
-	total_cost += cpu_operator_cost * input_tuples * numGroupCols;
-
+	Cost group_by_comparison_cost = cpu_operator_cost * input_tuples * numGroupCols;
+	total_cost += group_by_comparison_cost;
+	
 	/*
 	 * If there are quals (HAVING quals), account for their cost and
 	 * selectivity.
@@ -2987,7 +3027,9 @@ cost_group(Path *path, PlannerInfo *root,
 
 		cost_qual_eval(&qual_cost, quals, root);
 		startup_cost += qual_cost.startup;
+		qual_eval_startup_cost = qual_cost.startup;
 		total_cost += qual_cost.startup + output_tuples * qual_cost.per_tuple;
+		qual_eval_total_cost = qual_cost.startup + output_tuples * qual_cost.per_tuple;
 
 		output_tuples = clamp_row_est(output_tuples *
 									  clauselist_selectivity(root,
@@ -2996,6 +3038,13 @@ cost_group(Path *path, PlannerInfo *root,
 															 JOIN_INNER,
 															 NULL));
 	}
+
+	/* Jovis Cost */
+	path->input_total_cost = input_total_cost;
+	path->input_startup_cost = input_startup_cost;
+	path->qual_eval_startup_cost = qual_eval_startup_cost;
+	path->qual_eval_total_cost = qual_eval_total_cost;
+	path->group_by_comparison_cost = group_by_comparison_cost;
 
 	path->rows = output_tuples;
 	path->startup_cost = startup_cost;

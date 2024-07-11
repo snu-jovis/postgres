@@ -1653,8 +1653,8 @@ typedef struct Path
 	Cost		input_startup_cost;
 	Cost		group_run_cost;
 	Cost		group_processing_total_cost;
-	Cost		overhead_cost_per_tuple;
-	Cost		overhead_cost_per_group;
+	Cost		cpu_tuple_cost;
+	Cost		cpu_group_cost;
 
 	/* material */
 	Cost		input_run_cost;
@@ -1664,6 +1664,16 @@ typedef struct Path
 	Cost		qual_eval_total_cost;
 	Cost		group_by_comparison_cost;
 	Cost		input_total_cost;
+
+	/* aggregation */
+	Cost 		trans_startup_cost;
+	Cost		trans_cpu_run_cost;
+	Cost		final_startup_cost;
+	Cost		final_cpu_run_cost;
+	Cost		final_cpu_group_cost;
+	Cost		disk_write_cost;
+	Cost		disk_read_cost;
+	Cost		cpu_spill_cost;
 } Path;
 
 /* Macro for extracting a path's parameterization relids; beware double eval */
@@ -1935,10 +1945,12 @@ typedef struct AppendPath
 	/* Index of first partial path in subpaths; list_length(subpaths) if none */
 	int			first_partial_path;
 	Cardinality limit_tuples;	/* hard limit on output tuples, or -1 */
-	
-	/* Joivs Cost */
-	Cost		subpath_startup_cost;
-	Cost		subpath_total_run_cost;
+
+	/* Jovis Cost */
+	Cost		cpu_run_cost;
+	Cost 		subpath_startup_cost;
+	Cost 		subpath_total_cost;
+	Cost 		subpath_nonpartial_cost;
 } AppendPath;
 
 #define IS_DUMMY_APPEND(p) \

@@ -2155,7 +2155,7 @@ cost_incremental_sort(Path *path,
 	 */
 	run_cost += (cpu_tuple_cost + comparison_cost) * input_tuples;
 	/* Jovis Cost */
-	path->overhead_cost_per_tuple = (cpu_tuple_cost + comparison_cost) * input_tuples;
+	path->cpu_tuple_cost = (cpu_tuple_cost + comparison_cost) * input_tuples;
 
 	/*
 	 * Additionally, we charge double cpu_tuple_cost for each input group to
@@ -2163,7 +2163,7 @@ cost_incremental_sort(Path *path,
 	 */
 	run_cost += 2.0 * cpu_tuple_cost * input_groups;
 	/* Jovis Cost */
-	path->overhead_cost_per_group = 2.0 * cpu_tuple_cost * input_groups;
+	path->cpu_group_cost = 2.0 * cpu_tuple_cost * input_groups;
 
 	path->rows = input_tuples;
 	path->startup_cost = startup_cost;
@@ -2303,7 +2303,7 @@ cost_append(AppendPath *apath)
 	
 	/* Jovis Cost */
 	Cost subpath_total_startup_cost = 0;
-	Cost subpath_total_run_cost = 0;
+	Cost subpath_total_cost = 0;
 
 	if (!apath->path.parallel_aware)
 	{
@@ -2318,6 +2318,9 @@ cost_append(AppendPath *apath)
 			 * cost as the startup cost of the first subpath.
 			 */
 			apath->path.startup_cost = firstsubpath->startup_cost;
+			
+			/* Jovis Cost */
+			apath->subpath_startup_cost = firstsubpath->startup_cost;
 
 			/* Compute rows and costs as sums of subplan rows and costs. */
 			foreach(l, apath->subpaths)
@@ -2326,10 +2329,11 @@ cost_append(AppendPath *apath)
 
 				apath->path.rows += subpath->rows;
 				/* Jovis Cost */
-				subpath_total_run_cost += subpath->total_cost;
+				subpath_total_cost += subpath->total_cost;
 			}
-            apath->path.total_cost = subpath_total_run_cost;
-
+            apath->path.total_cost = subpath_total_cost;
+			/* Jovis Cost */
+			apath->subpath_total_cost = subpath_total_cost;
 		}
 		else
 		{
@@ -2377,9 +2381,14 @@ cost_append(AppendPath *apath)
 				}
 
 				apath->path.rows += subpath->rows;
-				apath->path.startup_cost += subpath->startup_cost;
-				apath->path.total_cost += subpath->total_cost;
+				subpath_total_startup_cost += subpath->startup_cost;
+				subpath_total_cost += subpath->total_cost;
 			}
+				apath->path.startup_cost += subpath_total_startup_cost;
+				apath->path.total_cost += subpath_total_cost;
+				/* Jovis Cost */
+				apath->subpath_startup_cost = subpath_total_startup_cost;
+				apath->subpath_total_cost = subpath_total_cost;
 		}
 	}
 	else						/* parallel-aware */
@@ -2400,12 +2409,18 @@ cost_append(AppendPath *apath)
 			 * lowest startup cost is done setting up. We consider only the
 			 * first few subplans that immediately get a worker assigned.
 			 */
-			if (i == 0)
+			if (i == 0){
 				apath->path.startup_cost = subpath->startup_cost;
-			else if (i < apath->path.parallel_workers)
+				/* Jovis Cost */
+				apath->subpath_startup_cost = subpath->startup_cost;
+			}	
+			else if (i < apath->path.parallel_workers){
 				apath->path.startup_cost = Min(apath->path.startup_cost,
 											   subpath->startup_cost);
-
+				/* Jovis Cost */
+				apath->subpath_startup_cost =  Min(apath->path.startup_cost,
+											   subpath->startup_cost);
+			}			
 			/*
 			 * Apply parallel divisor to subpaths.  Scale the number of rows
 			 * for each partial subpath based on the ratio of the parallel
@@ -2435,6 +2450,10 @@ cost_append(AppendPath *apath)
 			append_nonpartial_cost(apath->subpaths,
 								   apath->first_partial_path,
 								   apath->path.parallel_workers);
+		/* Jovis Cost */
+		apath->subpath_nonpartial_cost = append_nonpartial_cost(apath->subpaths,
+								   apath->first_partial_path,
+								   apath->path.parallel_workers);
 	}
 
 	/*
@@ -2443,6 +2462,7 @@ cost_append(AppendPath *apath)
 	 */
 	apath->path.total_cost +=
 		cpu_tuple_cost * APPEND_CPU_COST_MULTIPLIER * apath->path.rows;
+	apath->cpu_run_cost = cpu_tuple_cost * APPEND_CPU_COST_MULTIPLIER * apath->path.rows;
 }
 
 /*
@@ -2774,6 +2794,12 @@ cost_agg(Path *path, PlannerInfo *root,
 		/* we aren't grouping */
 		total_cost = startup_cost + cpu_tuple_cost;
 		output_tuples = 1;
+
+		/* Jovis Cost */
+		path->trans_startup_cost = aggcosts->transCost.startup;
+		path->trans_cpu_run_cost = aggcosts->transCost.per_tuple * input_tuples;
+		path->final_startup_cost = aggcosts->finalCost.startup;
+		path->final_cpu_run_cost = aggcosts->finalCost.per_tuple;
 	}
 	else if (aggstrategy == AGG_SORTED || aggstrategy == AGG_MIXED)
 	{
@@ -2793,6 +2819,16 @@ cost_agg(Path *path, PlannerInfo *root,
 		total_cost += aggcosts->finalCost.per_tuple * numGroups;
 		total_cost += cpu_tuple_cost * numGroups;
 		output_tuples = numGroups;
+
+		/* Jovis Cost */
+		path->input_startup_cost = input_startup_cost;
+		path->input_total_cost = input_total_cost;
+		path->trans_startup_cost = aggcosts->transCost.startup;
+		path->trans_cpu_run_cost = aggcosts->transCost.per_tuple * input_tuples;
+		path->final_startup_cost = aggcosts->finalCost.startup;
+		path->group_by_comparison_cost = (cpu_operator_cost * numGroupCols) * input_tuples;
+		path->final_cpu_group_cost = aggcosts->finalCost.per_tuple * numGroups;
+		path->cpu_group_cost = cpu_tuple_cost * numGroups;
 	}
 	else
 	{
@@ -2811,6 +2847,14 @@ cost_agg(Path *path, PlannerInfo *root,
 		/* cost of retrieving from hash table */
 		total_cost += cpu_tuple_cost * numGroups;
 		output_tuples = numGroups;
+
+		/* Jovis Cost */
+		path->trans_startup_cost = aggcosts->transCost.startup;
+		path->trans_cpu_run_cost = aggcosts->transCost.per_tuple * input_tuples;
+		path->final_startup_cost = aggcosts->finalCost.startup;
+		path->group_by_comparison_cost = (cpu_operator_cost * numGroupCols) * input_tuples;
+		path->final_cpu_group_cost = aggcosts->finalCost.per_tuple * numGroups;
+		path->cpu_group_cost = cpu_tuple_cost * numGroups;
 	}
 
 	/*
@@ -2885,6 +2929,11 @@ cost_agg(Path *path, PlannerInfo *root,
 		spill_cost = depth * input_tuples * 2.0 * cpu_tuple_cost;
 		startup_cost += spill_cost;
 		total_cost += spill_cost;
+
+		/* Jovis Cost */
+		path->disk_write_cost = pages_written * random_page_cost;
+		path->disk_read_cost = pages_read * seq_page_cost;
+		path->cpu_spill_cost = spill_cost;
 	}
 
 	/*
@@ -2905,6 +2954,8 @@ cost_agg(Path *path, PlannerInfo *root,
 															 0,
 															 JOIN_INNER,
 															 NULL));
+		path->qual_eval_startup_cost = qual_cost.startup;
+		path->qual_eval_total_cost = qual_cost.startup + output_tuples * qual_cost.per_tuple;
 	}
 
 	path->rows = output_tuples;

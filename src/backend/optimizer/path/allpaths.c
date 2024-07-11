@@ -4665,7 +4665,7 @@ print_path(PlannerInfo *root, Path *path, int indent)
 		for (i = 0; i < indent; i++)
 			printf("\t");
 		printf("  details: ");
-		printf("group_startup_cost=%lf group_input_run_cost=%lf input_startup_cost=%lf group_processing_total_cost=%lf overhead_cost_per_tuple=%lf overhead_cost_per_group=%lf\n", path->group_startup_cost, path->group_input_run_cost, path->input_startup_cost, path->group_processing_total_cost, path->overhead_cost_per_tuple, path->overhead_cost_per_group);
+		printf("group_startup_cost=%lf group_input_run_cost=%lf input_startup_cost=%lf group_processing_total_cost=%lf cpu_tuple_cost=%lf cpu_group_cost=%lf\n", path->group_startup_cost, path->group_input_run_cost, path->input_startup_cost, path->group_processing_total_cost, path->cpu_tuple_cost, path->cpu_group_cost);
 	}
 	else if (!strcmp(ptype, "Material")) {					
 		for (i = 0; i < indent; i++)
@@ -4678,6 +4678,21 @@ print_path(PlannerInfo *root, Path *path, int indent)
 			printf("\t");
 		printf("  details: ");
 		printf("input_startup_cost=%lf qual_eval_startup_cost=%lf input_total_cost=%lf group_by_comparison_cost=%lf qual_eval_total_cost=%lf\n", path->input_startup_cost, path->qual_eval_startup_cost, path->input_total_cost, path->group_by_comparison_cost, path->qual_eval_total_cost);
+	}
+	else if (!strcmp(ptype, "Agg")) {					
+		for (i = 0; i < indent; i++)
+			printf("\t");
+		printf("  details: ");
+		printf("trans_startup_cost=%lf trans_cpu_run_cost=%lf final_startup_cost=%lf final_cpu_group_cost=%lf group_by_comparison_cost=%lf cpu_group_cost=%lf input_startup_cost=%lf input_total_cost=%lf disk_write_cost=%lf disk_read_cost=%lf cpu_spill_cost=%lf qual_eval_startup_cost=%lf qual_eval_total_cost=%lf\n", path->trans_startup_cost, path->trans_cpu_run_cost, path->final_cpu_run_cost, path->final_cpu_group_cost, path->group_by_comparison_cost, path->cpu_group_cost, path->input_startup_cost, path->input_total_cost, path->disk_write_cost, path->disk_read_cost, path->cpu_spill_cost, path->qual_eval_startup_cost, path->qual_eval_total_cost);
+
+	} 
+	else if (!strcmp(ptype, "Append")) {	
+		AppendPath   *ap = (AppendPath *) path;
+				
+		for (i = 0; i < indent; i++)
+			printf("\t");
+		printf("  details: ");
+		printf("subpath_startup_cost=%lf subpath_total_cost=%lf subpath_nonpartial_cost=%lf cpu_run_cost=%lf\n", ap->subpath_startup_cost, ap->subpath_total_cost, ap->subpath_nonpartial_cost, ap->cpu_run_cost);
 	} 
 	if (join)
 	{

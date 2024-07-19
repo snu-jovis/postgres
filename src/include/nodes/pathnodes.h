@@ -3337,8 +3337,7 @@ typedef struct JoinCostWorkspace
 	Cost		outer_startup_cost;
 	Cost		outer_run_cost;
 	Cost		inner_startup_cost;
-	Cost		inner_run_cost;
-
+	
 	double		outer_path_rows;
 	Cost		inner_rescan_start_cost;
 } JoinCostWorkspace;

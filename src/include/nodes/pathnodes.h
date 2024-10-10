@@ -1653,7 +1653,30 @@ typedef struct Path
 
 	/* Jovis Costs for JOIN */
 	Cost		initial_startup_cost;
+	Cost		initial_total_cost;
 	Cost		initial_run_cost;
+
+	Cost		outer_startup_cost;
+	Cost		outer_run_cost;
+	Cost		inner_startup_cost;
+	Cost		inner_run_cost;
+
+	double		outer_path_rows;
+	Cost		inner_rescan_start_cost;
+
+	Cost		restrict_qual_cost_startup;
+
+	double		ntuples;
+	double		inner_path_rows;
+
+	/* Jovis Costs for Others */
+	Cost		run_cost;
+	Cost		subpath_total_cost;
+	Cost		subpath_startup_cost;
+	Cost		parallel_tuple_cost;
+	Cost		comparison_cost;
+	Cost		logN;
+	Cost		cpu_operator_cost;
 
 	/* sort ordering of path's output; a List of PathKey nodes; see above */
 	List	   *pathkeys;
@@ -3337,7 +3360,6 @@ typedef struct JoinCostWorkspace
 	Cost		outer_startup_cost;
 	Cost		outer_run_cost;
 	Cost		inner_startup_cost;
-	Cost		inner_run_cost;
 
 	double		outer_path_rows;
 	Cost		inner_rescan_start_cost;

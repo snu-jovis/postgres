@@ -4660,7 +4660,16 @@ print_path(PlannerInfo *root, Path *path, int indent)
 		print_restrictclauses(root, jp->joinrestrictinfo);
 		printf("\n");
 
-		if (IsA(path, MergePath))
+		if (IsA(path, NestPath))
+		{
+			NestPath   *np = (NestPath *) path;
+
+			for (i = 0; i < indent; i++)
+				printf("\t");
+			printf("  details: ");
+			printf("initial_startup_cost=%lf initial_total_cost=%lf initial_run_cost=%lf outer_startup_cost=%lf outer_run_cost=%lf inner_startup_cost=%lf inner_run_cost=%lf outer_path_rows=%lf inner_rescan_start_cost=%lf restrict_qual_cost_startup=%lf cost_per_tuple=%lf cpu_per_tuple=%lf ntuples=%lf outer_path_rows=%lf inner_path_rows=%lf\n", np->jpath.path.initial_startup_cost, np->jpath.path.initial_total_cost, np->jpath.path.initial_run_cost, np->jpath.path.outer_run_cost, np->jpath.path.inner_run_cost, np->jpath.path.outer_startup_cost, np->jpath.path.inner_startup_cost, np->jpath.path.outer_path_rows, np->jpath.path.inner_rescan_start_cost, np->jpath.path.restrict_qual_cost_startup, np->jpath.path.pathtarget->cost.per_tuple, np->jpath.path.cpu_per_tuple, np->jpath.path.ntuples, np->jpath.path.outer_path_rows, np->jpath.path.inner_path_rows);
+		} 
+		else if (IsA(path, MergePath))
 		{
 			MergePath  *mp = (MergePath *) path;
 

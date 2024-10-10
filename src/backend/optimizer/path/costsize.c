@@ -316,12 +316,18 @@ cost_seqscan(Path *path, PlannerInfo *root,
 		 * the number of tuples processed per worker.
 		 */
 		path->rows = clamp_row_est(path->rows / parallel_divisor);
+
+		/* Jovis Cost */
+		path->parallel_divisor = parallel_divisor;
 	}
 
 	path->startup_cost = startup_cost;
 	path->total_cost = startup_cost + cpu_run_cost + disk_run_cost;
 
 	/* Jovis Cost */
+	path->qpqual_startup_cost = qpqual_cost.startup;
+	path->pathtarget_startup_cost = path->pathtarget->cost.startup;
+
 	path->cpu_run_cost = cpu_run_cost;
 	path->cpu_per_tuple = cpu_per_tuple;
 	path->baserel_tuples = baserel->tuples;
@@ -402,6 +408,19 @@ cost_samplescan(Path *path, PlannerInfo *root,
 
 	path->startup_cost = startup_cost;
 	path->total_cost = startup_cost + run_cost;
+
+	/* Jovis Cost */
+	path->run_cost = run_cost;
+
+	path->qpqual_startup_cost = qpqual_cost.startup;
+	path->pathtarget_startup_cost = path->pathtarget->cost.startup;
+
+	path->cpu_per_tuple = cpu_per_tuple;
+	path->baserel_tuples = baserel->tuples;
+	path->pathtarget_cost = path->pathtarget->cost.per_tuple;
+
+	path->spc_page_cost = spc_page_cost;
+	path->baserel_pages = baserel->pages;
 }
 
 /*
@@ -440,6 +459,14 @@ cost_gather(GatherPath *path, PlannerInfo *root,
 
 	path->path.startup_cost = startup_cost;
 	path->path.total_cost = (startup_cost + run_cost);
+
+	/* Jovis Cost */
+	path->path.run_cost = run_cost;
+	path->path.subpath_startup_cost = path->subpath->startup_cost;
+	path->path.parallel_setup_cost = parallel_setup_cost;
+
+	path->path.subpath_total_cost = path->subpath->total_cost;
+	path->path.parallel_tuple_cost = parallel_tuple_cost;
 }
 
 /*
@@ -507,6 +534,17 @@ cost_gather_merge(GatherMergePath *path, PlannerInfo *root,
 
 	path->path.startup_cost = startup_cost + input_startup_cost;
 	path->path.total_cost = (startup_cost + run_cost + input_total_cost);
+
+	/* Jovis Cost */
+	path->path.run_cost = run_cost;
+	path->path.input_total_cost = input_total_cost;
+
+	path->path.comparison_cost = comparison_cost;
+	path->path.logN = logN;
+	path->path.parallel_setup_cost = parallel_setup_cost;
+	
+	path->path.cpu_operator_cost = cpu_operator_cost;
+	path->path.parallel_tuple_cost = parallel_tuple_cost;
 }
 
 /*
@@ -3078,7 +3116,6 @@ initial_cost_nestloop(PlannerInfo *root, JoinCostWorkspace *workspace,
 	workspace->outer_startup_cost = outer_path->startup_cost;
 	workspace->outer_run_cost = outer_path->total_cost - outer_path->startup_cost;
 	workspace->inner_startup_cost = inner_path->startup_cost;
-	workspace->inner_run_cost = inner_path->total_cost - inner_path->startup_cost;
 
 	workspace->outer_path_rows = outer_path_rows;
 	workspace->inner_rescan_start_cost = inner_rescan_start_cost;
@@ -3267,8 +3304,28 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 	path->jpath.path.startup_cost = startup_cost;
 	path->jpath.path.total_cost = startup_cost + run_cost;
 
-	/* Jovis Cost */
+	/* Jovis Cost for Initial Cost */
+	path->jpath.path.initial_startup_cost = workspace->initial_startup_cost;
+	path->jpath.path.initial_total_cost = workspace->initial_total_cost;
+	path->jpath.path.initial_run_cost = workspace->initial_run_cost;
 
+	path->jpath.path.outer_startup_cost = workspace->outer_startup_cost;
+	path->jpath.path.outer_run_cost = workspace->outer_run_cost;
+	path->jpath.path.inner_startup_cost = workspace->inner_startup_cost;
+	path->jpath.path.inner_run_cost = workspace->inner_run_cost;
+
+	path->jpath.path.outer_path_rows = workspace->outer_path_rows;
+	path->jpath.path.inner_rescan_start_cost = workspace->inner_rescan_start_cost;
+
+	/* Jovis Cost for Final Cost */
+	path->jpath.path.restrict_qual_cost_startup = restrict_qual_cost.startup;
+
+	path->jpath.path.cpu_per_tuple = cpu_per_tuple;
+	path->jpath.path.ntuples = ntuples;
+	path->jpath.path.outer_path_rows = outer_path_rows;
+	path->jpath.path.inner_path_rows = inner_path_rows;
+
+	/* TODO: With a SEMI or ANTI join, or if the innerrel is known unique */
 }
 
 /*

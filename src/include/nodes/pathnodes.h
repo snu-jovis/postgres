@@ -1624,7 +1624,19 @@ typedef struct Path
 	Cost startup_cost; /* cost expended before fetching any tuples */
 	Cost total_cost;   /* total cost (assuming all tuples fetched) */
 
-	/* Jovis Cost for SCAN */
+	/*
+	 * Jovis: A Visualization Tool for PostgreSQL Query Optimizer
+	 */
+	double parallel_divisor;
+	Cost qpqual_startup_cost;
+	Cost pathtarget_startup_cost;
+
+	double spc_page_cost;
+
+	double parallel_setup_cost;
+
+	double input_total_cost;
+
 	double loop_count;
 
 	Cost index_scan_cost;
@@ -1646,7 +1658,6 @@ typedef struct Path
 	double pages_fetched;
 	Cost cost_per_page;
 
-	/* Jovis Costs for JOIN */
 	Cost initial_startup_cost;
 	Cost initial_total_cost;
 	Cost initial_run_cost;
@@ -1664,7 +1675,6 @@ typedef struct Path
 	double ntuples;
 	double inner_path_rows;
 
-	/* Jovis Costs for Others */
 	Cost run_cost;
 	Cost subpath_total_cost;
 	Cost subpath_startup_cost;
@@ -3345,7 +3355,9 @@ typedef struct JoinCostWorkspace
 	int numbatches;
 	Cardinality inner_rows_total;
 
-	/* Jovis Cost */
+	/*
+	 * Jovis: A Visualization Tool for PostgreSQL Query Optimizer
+	 */
 	Cost initial_startup_cost;
 	Cost initial_total_cost;
 	Cost initial_run_cost;

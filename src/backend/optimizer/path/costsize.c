@@ -263,6 +263,9 @@ cost_seqscan(Path *path, PlannerInfo *root,
 	QualCost	qpqual_cost;
 	Cost		cpu_per_tuple;
 
+	/* jovis; default set to 0 */
+	path->parallel_divisor = 0;
+
 	/* Should only be applied to base relations */
 	Assert(baserel->relid > 0);
 	Assert(baserel->rtekind == RTE_RELATION);

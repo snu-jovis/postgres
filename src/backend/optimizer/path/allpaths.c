@@ -4635,8 +4635,11 @@ print_path(PlannerInfo *root, Path *path, int indent)
 		for (i = 0; i < indent; i++)
 			printf("\t");
 		printf(" details: ");
-		printf("cpu_run_cost=%lf cpu_per_tuple=%lf baserel_tuples=%lf pathtarget_cost=%lf disk_run_cost=%lf spc_seq_page_cost=%lf baserel_pages=%u\n", path->cpu_run_cost, path->cpu_per_tuple, path->baserel_tuples, path->pathtarget_cost, path->disk_run_cost, path->spc_seq_page_cost, path->baserel_pages);
+		printf("cpu_run_cost=%lf cpu_per_tuple=%lf baserel_tuples=%lf pathtarget_cost=%lf disk_run_cost=%lf spc_seq_page_cost=%lf baserel_pages=%u parallel_workers=%d parallel_divisor=%lf qpqual_startup_cost=%lf pathtarget_startup_cost=%lf\n", path->cpu_run_cost, path->cpu_per_tuple, path->baserel_tuples, path->pathtarget_cost, path->disk_run_cost, path->spc_seq_page_cost, path->baserel_pages, path->parallel_workers, path->parallel_divisor, path->qpqual_startup_cost, path->pathtarget_startup_cost);
 	}
+	// else if(!strcmp(ptype, "SampleScan")) {}
+	// else if(!strcmp(ptype, "Gather")) {}
+	// else if(!strcmp(ptype, "GatherMerge")) {}
 	else if (!strcmp(ptype, "IdxScan")) {
 		for (i = 0; i < indent; i++)
 			printf("\t");

@@ -3507,6 +3507,12 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 			* outerstartsel;
 		run_cost += (sort_path.total_cost - sort_path.startup_cost)
 			* (outerendsel - outerstartsel);
+		
+		/* Jovis Cost */
+		workspace->outer_startup_cost = sort_path.startup_cost + (sort_path.total_cost - sort_path.startup_cost)
+			* outerstartsel;
+		workspace->outer_run_cost = (sort_path.total_cost - sort_path.startup_cost)
+			* (outerendsel - outerstartsel);
 	}
 	else
 	{
@@ -3514,6 +3520,12 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 		startup_cost += (outer_path->total_cost - outer_path->startup_cost)
 			* outerstartsel;
 		run_cost += (outer_path->total_cost - outer_path->startup_cost)
+			* (outerendsel - outerstartsel);
+		
+		/* Jovis Cost */
+		workspace->outer_startup_cost = outer_path->startup_cost + (outer_path->total_cost - outer_path->startup_cost)
+			* outerstartsel;
+		workspace->outer_run_cost = (outer_path->total_cost - outer_path->startup_cost)
 			* (outerendsel - outerstartsel);
 	}
 
@@ -3533,6 +3545,10 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 			* innerstartsel;
 		inner_run_cost = (sort_path.total_cost - sort_path.startup_cost)
 			* (innerendsel - innerstartsel);
+		/* Jovis Cost */
+		workspace->inner_startup_cost = sort_path.startup_cost + (sort_path.total_cost - sort_path.startup_cost)
+			* innerstartsel;
+		workspace->inner_run_cost = inner_run_cost;
 	}
 	else
 	{
@@ -3541,6 +3557,12 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 			* innerstartsel;
 		inner_run_cost = (inner_path->total_cost - inner_path->startup_cost)
 			* (innerendsel - innerstartsel);
+		
+		/* Jovis Cost */
+		workspace->inner_startup_cost = inner_path->startup_cost + (inner_path->total_cost - inner_path->startup_cost)
+			* innerstartsel;
+		workspace->inner_run_cost = inner_run_cost;
+
 	}
 
 	/*
@@ -3816,6 +3838,14 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 	run_cost += merge_qual_cost.per_tuple *
 		((outer_rows - outer_skip_rows) +
 		 (inner_rows - inner_skip_rows) * rescanratio);
+	
+	/* Jovis Cost */
+	path->merge_qual_startup_cost = merge_qual_cost.startup;
+	path->skip_tuple_cost =  merge_qual_cost.per_tuple *
+		(outer_skip_rows + inner_skip_rows * rescanratio);
+	path->cmp_tuple_cost = merge_qual_cost.per_tuple *
+		((outer_rows - outer_skip_rows) +
+		 (inner_rows - inner_skip_rows) * rescanratio);
 
 	/*
 	 * For each tuple that gets through the mergejoin proper, we charge
@@ -3829,13 +3859,27 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 	startup_cost += qp_qual_cost.startup;
 	cpu_per_tuple = cpu_tuple_cost + qp_qual_cost.per_tuple;
 	run_cost += cpu_per_tuple * mergejointuples;
+	/* Jovis Cost */
+	path->qp_qual_startup_cost = qp_qual_cost.startup;
+	path->cpu_per_tuple = cpu_per_tuple;
+	path->mergejointuples = mergejointuples;
 
 	/* tlist eval costs are paid per output row, not per tuple scanned */
 	startup_cost += path->jpath.path.pathtarget->cost.startup;
 	run_cost += path->jpath.path.pathtarget->cost.per_tuple * path->jpath.path.rows;
 
+	/* Jovis Cost */
+	path->tlist_startup_cost = path->jpath.path.pathtarget->cost.startup;
+	path->tlist_run_cost = path->jpath.path.pathtarget->cost.per_tuple * path->jpath.path.rows;
+
 	path->jpath.path.startup_cost = startup_cost;
 	path->jpath.path.total_cost = startup_cost + run_cost;
+
+	/* Jovis Cost */
+	path->inner_run_cost = workspace->inner_run_cost;
+	path->outer_run_cost = workspace->outer_run_cost;
+	path->outer_startup_cost = workspace->outer_startup_cost;
+	path->inner_startup_cost = workspace->inner_startup_cost;
 }
 
 /*

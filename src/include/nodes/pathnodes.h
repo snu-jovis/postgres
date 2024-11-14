@@ -2146,6 +2146,21 @@ typedef struct MergePath
 	List *innersortkeys;	 /* keys for explicit sort, if any */
 	bool skip_mark_restore;	 /* can executor skip mark/restore? */
 	bool materialize_inner;	 /* add Materialize to inner? */
+
+	/* Jovis Cost */
+	Cost		merge_qual_startup_cost;
+	Cost		cmp_tuple_cost;
+	Cost		skip_tuple_cost;
+	Cost		qp_qual_startup_cost;
+	Cost 		cpu_per_tuple;
+	Cost		tlist_startup_cost;
+	Cost 		tlist_run_cost;
+	int			mergejointuples;
+
+	Cost 		inner_run_cost;
+	Cost		outer_run_cost;
+	Cost		outer_startup_cost;
+	Cost 		inner_startup_cost;
 } MergePath;
 
 /*
@@ -3392,6 +3407,7 @@ typedef struct JoinCostWorkspace
 	Cost estimated_probe_cost;
 	Cost batch_startup_cost;
 	Cost batch_run_cost;
+
 } JoinCostWorkspace;
 
 /*

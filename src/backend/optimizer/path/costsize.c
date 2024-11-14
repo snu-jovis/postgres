@@ -3944,6 +3944,11 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	run_cost += outer_path->total_cost - outer_path->startup_cost;
 	startup_cost += inner_path->total_cost;
 
+	/* Jovis Cost */
+	workspace->outer_startup_cost = outer_path->startup_cost;
+	workspace->inner_total_cost = inner_path->total_cost;
+	workspace->outer_run_cost = outer_path->total_cost - outer_path->startup_cost;
+
 	/*
 	 * Cost of computing hash function: must do it once per input tuple. We
 	 * charge one cpu_operator_cost for each column's hash function.  Also,
@@ -3954,9 +3959,13 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	 * should charge the extra eval costs of the left or right side, as
 	 * appropriate, here.  This seems more work than it's worth at the moment.
 	 */
-	startup_cost += (cpu_operator_cost * num_hashclauses + cpu_tuple_cost)
-		* inner_path_rows;
+	Cost hash_build_cost = (cpu_operator_cost * num_hashclauses + cpu_tuple_cost) * inner_path_rows;
+	startup_cost += hash_build_cost;
 	run_cost += cpu_operator_cost * num_hashclauses * outer_path_rows;
+
+	/* Jovis Cost */
+	workspace->hash_build_cost = hash_build_cost;
+	workspace->estimated_probe_cost = cpu_operator_cost * num_hashclauses * outer_path_rows;
 
 	/*
 	 * If this is a parallel hash build, then the value we have for
@@ -4003,6 +4012,10 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 
 		startup_cost += seq_page_cost * innerpages;
 		run_cost += seq_page_cost * (innerpages + 2 * outerpages);
+
+		/* Jovis Cost */
+		workspace->batch_startup_cost = seq_page_cost * innerpages;
+		workspace->batch_run_cost = seq_page_cost * (innerpages + 2 * outerpages); 
 	}
 
 	/* CPU costs left for later */
@@ -4208,7 +4221,11 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 		startup_cost += hash_qual_cost.startup;
 		run_cost += hash_qual_cost.per_tuple * outer_matched_rows *
 			clamp_row_est(inner_path_rows * innerbucketsize * inner_scan_frac) * 0.5;
-
+		
+		/* Jovis Cost */
+		path->hash_qual_startup_cost = hash_qual_cost.startup;
+		path->hash_qual_matching_cost = hash_qual_cost.per_tuple * outer_matched_rows *
+			clamp_row_est(inner_path_rows * innerbucketsize * inner_scan_frac) * 0.5;
 		/*
 		 * For unmatched outer-rel rows, the picture is quite a lot different.
 		 * In the first place, there is no reason to assume that these rows
@@ -4223,6 +4240,10 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 		 * matchable tuples.
 		 */
 		run_cost += hash_qual_cost.per_tuple *
+			(outer_path_rows - outer_matched_rows) *
+			clamp_row_est(inner_path_rows / virtualbuckets) * 0.05;
+		/* Jovis Cost */
+		path->hash_qual_unmatching_cost = hash_qual_cost.per_tuple *
 			(outer_path_rows - outer_matched_rows) *
 			clamp_row_est(inner_path_rows / virtualbuckets) * 0.05;
 
@@ -4248,6 +4269,11 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 		run_cost += hash_qual_cost.per_tuple * outer_path_rows *
 			clamp_row_est(inner_path_rows * innerbucketsize) * 0.5;
 
+		/* Jovis Cost */
+		path->hash_qual_startup_cost = hash_qual_cost.startup;
+		path->hash_qual_run_cost = hash_qual_cost.per_tuple * outer_path_rows *
+			clamp_row_est(inner_path_rows * innerbucketsize) * 0.5;
+
 		/*
 		 * Get approx # tuples passing the hashquals.  We use
 		 * approx_tuple_count here because we need an estimate done with
@@ -4266,12 +4292,30 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 	cpu_per_tuple = cpu_tuple_cost + qp_qual_cost.per_tuple;
 	run_cost += cpu_per_tuple * hashjointuples;
 
+	/* Jovis Cost */
+	path->qp_qual_cost = qp_qual_cost.startup;
+	path->cpu_per_tuple = cpu_per_tuple;
+	path->hashjointuples = hashjointuples;
+
 	/* tlist eval costs are paid per output row, not per tuple scanned */
 	startup_cost += path->jpath.path.pathtarget->cost.startup;
 	run_cost += path->jpath.path.pathtarget->cost.per_tuple * path->jpath.path.rows;
 
+	/* Jovis Cost */
+	path->tlist_startup_cost = path->jpath.path.pathtarget->cost.startup;
+	path->tlist_run_cost = path->jpath.path.pathtarget->cost.per_tuple * path->jpath.path.rows;
+
 	path->jpath.path.startup_cost = startup_cost;
 	path->jpath.path.total_cost = startup_cost + run_cost;
+	
+	/* Jovis Cost */
+	path->outer_run_cost = workspace->outer_startup_cost;
+	path->outer_run_cost = workspace->outer_run_cost;
+	path->inner_total_cost = workspace->inner_total_cost;
+	path->hash_build_cost = workspace->hash_build_cost,
+	path->estimated_probe_cost = workspace->estimated_probe_cost;
+	path->batch_startup_cost	= workspace->batch_startup_cost;
+	path-> batch_run_cost = workspace->batch_run_cost;
 }
 
 

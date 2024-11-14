@@ -2163,6 +2163,24 @@ typedef struct HashPath
 	List *path_hashclauses;		  /* join clauses used for hashing */
 	int num_batches;			  /* number of batches expected */
 	Cardinality inner_rows_total; /* total inner rows expected */
+	/* Jovis Cost */
+	double		hashjointuples;
+	Cost		hash_qual_startup_cost;
+	Cost		hash_qual_run_cost;
+	Cost		hash_qual_matching_cost;
+	Cost		hash_qual_unmatching_cost;
+	Cost		qp_qual_cost;
+	Cost 		cpu_per_tuple;
+	Cost		tlist_startup_cost;
+	Cost 		tlist_run_cost;
+
+	Cost 		outer_startup_cost;
+	Cost 		outer_run_cost;
+	Cost 		inner_total_cost;
+	Cost 		hash_build_cost;
+	Cost 		estimated_probe_cost;
+	Cost 		batch_startup_cost;
+	Cost 		batch_run_cost;
 } HashPath;
 
 /*
@@ -3365,9 +3383,15 @@ typedef struct JoinCostWorkspace
 	Cost outer_startup_cost;
 	Cost outer_run_cost;
 	Cost inner_startup_cost;
+	Cost inner_total_cost;
 
 	double outer_path_rows;
 	Cost inner_rescan_start_cost;
+
+	Cost hash_build_cost;
+	Cost estimated_probe_cost;
+	Cost batch_startup_cost;
+	Cost batch_run_cost;
 } JoinCostWorkspace;
 
 /*

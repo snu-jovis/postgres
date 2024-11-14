@@ -4683,6 +4683,30 @@ print_path(PlannerInfo *root, Path *path, int indent)
 				   ((mp->innersortkeys) ? 1 : 0),
 				   ((mp->materialize_inner) ? 1 : 0));
 		}
+		else if (IsA(path, HashPath)){
+			HashPath   *hp = (HashPath *) path;
+
+			for (i = 0; i < indent; i++)
+				printf("\t");
+			printf("  details: ");
+			printf("outer_startup_cost=%f outer_run_cost=%f inner_total_cost=%f hash_build_cost=%f estimated_probe_cost=%f batch_startup_cost=%f batch_run_cost=%f hashjointuples=%f hash_qual_startup_cost=%f hash_qual_run_cost=%f hash_qual_matching_cost=%f hash_qual_unmatching_cost=%f qp_qual_cost=%f cpu_per_tuple=%f tlist_startup_cost=%f tlist_run_cost=%f\n",
+					hp->outer_startup_cost,
+					hp->outer_run_cost,
+					hp->inner_total_cost,
+					hp->hash_build_cost,
+					hp->estimated_probe_cost,
+					hp->batch_startup_cost,
+					hp->batch_run_cost,
+					hp->hashjointuples,
+					hp->hash_qual_startup_cost,
+					hp->hash_qual_run_cost,
+					hp->hash_qual_matching_cost,
+					hp->hash_qual_unmatching_cost,
+					hp->qp_qual_cost,
+					hp->cpu_per_tuple,
+					hp->tlist_startup_cost,
+					hp->tlist_run_cost);
+		}
 
 		print_path(root, jp->outerjoinpath, indent + 1);
 		print_path(root, jp->innerjoinpath, indent + 1);

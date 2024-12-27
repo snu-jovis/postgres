@@ -1624,64 +1624,67 @@ typedef struct Path
 	Cost startup_cost; /* cost expended before fetching any tuples */
 	Cost total_cost;   /* total cost (assuming all tuples fetched) */
 
-	/*
-	 * Jovis: A Visualization Tool for PostgreSQL Query Optimizer
-	 */
+	/* Jovis variables */
 	double parallel_divisor;
-	Cost qpqual_startup_cost;
-	Cost pathtarget_startup_cost;
-
-	double spc_page_cost;
-
-	double parallel_setup_cost;
-
-	double input_total_cost;
-
-	double loop_count;
-
-	Cost index_scan_cost;
-	double index_correlation;
-	Selectivity index_selectivity;
 
 	Cost cpu_run_cost;
+	Cost disk_run_cost;
+
 	Cost cpu_per_tuple;
 	Cardinality baserel_tuples;
-	double tuples_fetched;
 	Cost pathtarget_cost;
 
-	Cost disk_run_cost;
-	Cost max_io_cost;
-	Cost min_io_cost;
 	double spc_seq_page_cost;
-	double spc_random_page_cost;
 	BlockNumber baserel_pages;
-	double pages_fetched;
-	Cost cost_per_page;
+	/* -- seqscan */
 
-	Cost initial_startup_cost;
-	Cost initial_total_cost;
-	Cost initial_run_cost;
-
-	Cost outer_startup_cost;
-	Cost outer_run_cost;
-	Cost inner_startup_cost;
-	Cost inner_run_cost;
-
-	double outer_path_rows;
-	Cost inner_rescan_start_cost;
-
-	Cost restrict_qual_cost_startup;
-
-	double ntuples;
-	double inner_path_rows;
+	double spc_page_cost;
+	/* -- samplescan */
 
 	Cost run_cost;
-	Cost subpath_total_cost;
-	Cost subpath_startup_cost;
+
+	Cost subpath_cost;
 	Cost parallel_tuple_cost;
+	/* -- gather */
+
+	Cost input_startup_cost;
+	Cost input_total_cost;
+
 	Cost comparison_cost;
 	Cost logN;
 	Cost cpu_operator_cost;
+	/* -- gather merge */
+
+	Cost index_scan_cost;
+	double index_correlation;
+
+	Cost max_io_cost;
+	Cost min_io_cost;
+	/* -- idx scan */
+
+	double pages_fetched;
+	Cost cost_per_page;
+	/* -- bitmapheap scan */
+
+	bool is_early_stop;
+	bool has_indexed_join_quals;
+
+	Cost initial_outer_path_run_cost;
+	double initial_outer_path_rows;
+	Cost initial_inner_run_cost;
+	Cost initial_inner_rescan_start_cost;
+	Cost initial_inner_rescan_run_cost;
+
+	Cost inner_run_cost;
+	Cost inner_rescan_run_cost;
+	double outer_matched_rows;
+	double outer_unmatched_rows;
+	Selectivity inner_scan_frac;
+
+	double inner_path_rows;
+	double ntuples;
+	Cost cost_per_tuple;
+	/* -- nestloop */
 
 	/* sort ordering of path's output; a List of PathKey nodes; see above */
 	List *pathkeys;
@@ -3355,17 +3358,8 @@ typedef struct JoinCostWorkspace
 	int numbatches;
 	Cardinality inner_rows_total;
 
-	/*
-	 * Jovis: A Visualization Tool for PostgreSQL Query Optimizer
-	 */
-	Cost initial_startup_cost;
-	Cost initial_total_cost;
-	Cost initial_run_cost;
-
-	Cost outer_startup_cost;
-	Cost outer_run_cost;
-	Cost inner_startup_cost;
-
+	/* Jovis variables */
+	Cost outer_path_run_cost;
 	double outer_path_rows;
 	Cost inner_rescan_start_cost;
 } JoinCostWorkspace;

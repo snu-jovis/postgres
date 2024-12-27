@@ -13,8 +13,6 @@
  *-------------------------------------------------------------------------
  */
 
-#define OPTIMIZER_DEBUG 1
-
 #include "postgres.h"
 
 #include <limits.h>
@@ -238,7 +236,7 @@ make_one_rel(PlannerInfo *root, List *joinlist)
 	 */
 	Assert(bms_equal(rel->relids, root->all_query_rels));
 
-	printf("[VPQO] split line=");
+	printf("[JOVIS] split line=");
 	printf("RELOPTINFO (");
 	print_relids(root, rel->relids);
 	printf(")\n");
@@ -575,9 +573,9 @@ set_rel_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	set_cheapest(rel);
 
 #ifdef OPTIMIZER_DEBUG
-	printf("[VPQO][BASE] set_rel_pathlist started\n");
+	printf("[JOVIS][BASE] set_rel_pathlist started\n");
 	debug_print_rel(root, rel);
-	printf("[VPQO][BASE] set_rel_pathlist done\n");
+	printf("[JOVIS][BASE] set_rel_pathlist done\n");
 #endif
 }
 
@@ -3496,9 +3494,9 @@ standard_join_search(PlannerInfo *root, int levels_needed, List *initial_rels)
 			set_cheapest(rel);
 
 #ifdef OPTIMIZER_DEBUG
-			printf("[VPQO][DP] standard_join_search started\n");
+			printf("[JOVIS][DP] standard_join_search started\n");
 			debug_print_rel(root, rel);
-			printf("[VPQO][DP] standard_join_search done\n");
+			printf("[JOVIS][DP] standard_join_search done\n");
 #endif
 		}
 	}
@@ -4366,9 +4364,9 @@ generate_partitionwise_join_paths(PlannerInfo *root, RelOptInfo *rel)
 			continue;
 
 #ifdef OPTIMIZER_DEBUG
-		printf("[VPQO][?] generate_partitionwise_join_paths started\n");
+		printf("[JOVIS][?] generate_partitionwise_join_paths started\n");
 		debug_print_rel(root, child_rel);
-		printf("[VPQO][?] generate_partitionwise_join_paths done\n");
+		printf("[JOVIS][?] generate_partitionwise_join_paths done\n");
 #endif
 
 		live_children = lappend(live_children, child_rel);
@@ -4635,22 +4633,36 @@ print_path(PlannerInfo *root, Path *path, int indent)
 		for (i = 0; i < indent; i++)
 			printf("\t");
 		printf(" details: ");
-		printf("cpu_run_cost=%lf cpu_per_tuple=%lf baserel_tuples=%lf pathtarget_cost=%lf disk_run_cost=%lf spc_seq_page_cost=%lf baserel_pages=%u parallel_workers=%d parallel_divisor=%lf qpqual_startup_cost=%lf pathtarget_startup_cost=%lf\n", path->cpu_run_cost, path->cpu_per_tuple, path->baserel_tuples, path->pathtarget_cost, path->disk_run_cost, path->spc_seq_page_cost, path->baserel_pages, path->parallel_workers, path->parallel_divisor, path->qpqual_startup_cost, path->pathtarget_startup_cost);
+		printf("parallel_workers=%d parallel_divisor=%lf cpu_run_cost=%lf disk_run_cost=%lf cpu_per_tuple=%lf baserel_tuples=%lf pathtarget_cost=%lf spc_seq_page_cost=%lf baserel_pages=%u\n", path->parallel_workers, path->parallel_divisor, path->cpu_run_cost, path->disk_run_cost, path->cpu_per_tuple, path->baserel_tuples, path->pathtarget_cost, path->spc_seq_page_cost, path->baserel_pages);
 	}
 	// else if(!strcmp(ptype, "SampleScan")) {}
-	// else if(!strcmp(ptype, "Gather")) {}
-	// else if(!strcmp(ptype, "GatherMerge")) {}
-	else if (!strcmp(ptype, "IdxScan")) {
+	else if (!strcmp(ptype, "Gather"))
+	{
 		for (i = 0; i < indent; i++)
 			printf("\t");
 		printf(" details: ");
-		printf("loop_count=%lf index_scan_cost=%lf index_correlation=%lf index_selectivity=%lf cpu_run_cost=%lf cpu_per_tuple=%lf tuples_fetched=%lf pathtarget_cost=%lf disk_run_cost=%lf max_io_cost=%lf min_io_cost=%lf spc_seq_page_cost=%lf spc_random_page_cost=%lf baserel_pages=%u pages_fetched=%lf\n", path->loop_count, path->index_scan_cost, path->index_correlation, path->index_selectivity, path->cpu_run_cost, path->cpu_per_tuple, path->tuples_fetched, path->pathtarget_cost, path->disk_run_cost, path->max_io_cost, path->min_io_cost, path->spc_seq_page_cost, path->spc_random_page_cost, path->baserel_pages, path->pages_fetched);
+		printf("run_cost=%lf subpath_cost=%lf parallel_tuple_cost=%lf\n", path->run_cost, path->subpath_cost, path->parallel_tuple_cost);
 	}
-	else if (!strcmp(ptype, "BitmapHeapScan")) {
+	else if (!strcmp(ptype, "GatherMerge"))
+	{
 		for (i = 0; i < indent; i++)
 			printf("\t");
 		printf(" details: ");
-		printf("cpu_run_cost=%lf cpu_per_tuple=%lf tuples_fetched=%lf pathtarget_cost=%lf pages_fetched=%lf cost_per_page=%lf\n", path->cpu_run_cost, path->cpu_per_tuple, path->tuples_fetched, path->pathtarget_cost, path->pages_fetched, path->cost_per_page);
+		printf("run_cost=%lf input_startup_cost=%lf input_total_cost=%lf comparison_cost=%lf logN=%lf cpu_operator_cost=%lf parallel_tuple_cost=%lf\n", path->run_cost, path->input_startup_cost, path->input_total_cost, path->comparison_cost, path->logN, path->cpu_operator_cost, path->parallel_tuple_cost);
+	}
+	else if (!strcmp(ptype, "IdxScan"))
+	{
+		for (i = 0; i < indent; i++)
+			printf("\t");
+		printf(" details: ");
+		printf("parallel_workers=%d parallel_divisor=%lf cpu_run_cost=%lf disk_run_cost=%lf cpu_per_tuple=%lf baserel_tuples=%lf pathtarget_cost=%lf index_scan_cost=%lf index_correlation=%lf max_io_cost=%lf min_io_cost=%lf\n", path->parallel_workers, path->parallel_divisor, path->cpu_run_cost, path->disk_run_cost, path->cpu_per_tuple, path->baserel_tuples, path->pathtarget_cost, path->index_scan_cost, path->index_correlation, path->max_io_cost, path->min_io_cost);
+	}
+	else if (!strcmp(ptype, "NestLoop"))
+	{
+		for (i = 0; i < indent; i++)
+			printf("\t");
+		printf(" details: ");
+		printf("run_cost=%lf initial_outer_path_run_cost=%lf initial_outer_path_rows=%lf initial_inner_run_cost=%lf initial_inner_rescan_start_cost=%lf initial_inner_rescan_run_cost=%lf is_early_stop=%d has_indexed_join_quals=%d inner_run_cost=%lf inner_rescan_run_cost=%lf outer_matched_rows=%lf outer_unmatched_rows=%lf inner_scan_frac=%lf inner_path_rows=%lf cpu_per_tuple=%lf ntuples=%lf cost_per_tuple=%lf\n", path->run_cost, path->initial_outer_path_run_cost, path->initial_outer_path_rows, path->initial_inner_run_cost, path->initial_inner_rescan_start_cost, path->initial_inner_rescan_run_cost, path->is_early_stop, path->has_indexed_join_quals, path->inner_run_cost, path->inner_rescan_run_cost, path->outer_matched_rows, path->outer_unmatched_rows, path->inner_scan_frac, path->inner_path_rows, path->cpu_per_tuple, path->ntuples, path->cost_per_tuple);
 	}
 
 	if (join)
@@ -4662,17 +4674,8 @@ print_path(PlannerInfo *root, Path *path, int indent)
 		printf("  clauses: ");
 		print_restrictclauses(root, jp->joinrestrictinfo);
 		printf("\n");
-
-		if (IsA(path, NestPath))
-		{
-			NestPath   *np = (NestPath *) path;
-
-			for (i = 0; i < indent; i++)
-				printf("\t");
-			printf("  details: ");
-			printf("initial_startup_cost=%lf initial_total_cost=%lf initial_run_cost=%lf outer_startup_cost=%lf outer_run_cost=%lf inner_startup_cost=%lf inner_run_cost=%lf outer_path_rows=%lf inner_rescan_start_cost=%lf restrict_qual_cost_startup=%lf cost_per_tuple=%lf cpu_per_tuple=%lf ntuples=%lf outer_path_rows=%lf inner_path_rows=%lf\n", np->jpath.path.initial_startup_cost, np->jpath.path.initial_total_cost, np->jpath.path.initial_run_cost, np->jpath.path.outer_run_cost, np->jpath.path.inner_run_cost, np->jpath.path.outer_startup_cost, np->jpath.path.inner_startup_cost, np->jpath.path.outer_path_rows, np->jpath.path.inner_rescan_start_cost, np->jpath.path.restrict_qual_cost_startup, np->jpath.path.pathtarget->cost.per_tuple, np->jpath.path.cpu_per_tuple, np->jpath.path.ntuples, np->jpath.path.outer_path_rows, np->jpath.path.inner_path_rows);
-		} 
-		else if (IsA(path, MergePath))
+		
+		if (IsA(path, MergePath))
 		{
 			MergePath  *mp = (MergePath *) path;
 

@@ -11,6 +11,8 @@
  *
  *-------------------------------------------------------------------------
  */
+#define OPTIMIZER_DEBUG 1
+
 #ifndef PATHS_H
 #define PATHS_H
 

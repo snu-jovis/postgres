@@ -124,7 +124,7 @@ geqo_eval(PlannerInfo *root, Gene *tour, int num_gene)
 		RelOptInfo* rel2;
 		int j;
 
-		printf("[VPQO][GEQO][JOININFO] gene= ");
+		printf("[JOVIS][GEQO][JOININFO] gene= ");
 		for (j = 0; j < num_gene; j++)
 			printf("%d ", tour[j]);
 		printf("\n");
@@ -133,7 +133,7 @@ geqo_eval(PlannerInfo *root, Gene *tour, int num_gene)
 		rel2 = (RelOptInfo *) llast((ListCell*)root->join_rel_list);
 		debug_print_rel(root, rel2);
 
-		printf("[VPQO][GEQO][JOININFO] Done\n");
+		printf("[JOVIS][GEQO][JOININFO] Done\n");
 	}
 
 	/*

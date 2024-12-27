@@ -263,9 +263,6 @@ cost_seqscan(Path *path, PlannerInfo *root,
 	QualCost	qpqual_cost;
 	Cost		cpu_per_tuple;
 
-	/* jovis; default set to 0 */
-	path->parallel_divisor = 0;
-
 	/* Should only be applied to base relations */
 	Assert(baserel->relid > 0);
 	Assert(baserel->rtekind == RTE_RELATION);
@@ -303,6 +300,7 @@ cost_seqscan(Path *path, PlannerInfo *root,
 	if (path->parallel_workers > 0)
 	{
 		double		parallel_divisor = get_parallel_divisor(path);
+		path->parallel_divisor = parallel_divisor; // Jovis
 
 		/* The CPU cost is divided among all the workers. */
 		cpu_run_cost /= parallel_divisor;
@@ -319,24 +317,19 @@ cost_seqscan(Path *path, PlannerInfo *root,
 		 * the number of tuples processed per worker.
 		 */
 		path->rows = clamp_row_est(path->rows / parallel_divisor);
-
-		/* Jovis Cost */
-		path->parallel_divisor = parallel_divisor;
 	}
 
 	path->startup_cost = startup_cost;
 	path->total_cost = startup_cost + cpu_run_cost + disk_run_cost;
 
-	/* Jovis Cost */
-	path->qpqual_startup_cost = qpqual_cost.startup;
-	path->pathtarget_startup_cost = path->pathtarget->cost.startup;
-
+	/* Jovis */
 	path->cpu_run_cost = cpu_run_cost;
+	path->disk_run_cost = disk_run_cost;
+
 	path->cpu_per_tuple = cpu_per_tuple;
 	path->baserel_tuples = baserel->tuples;
 	path->pathtarget_cost = path->pathtarget->cost.per_tuple;
 
-	path->disk_run_cost = disk_run_cost;
 	path->spc_seq_page_cost = spc_seq_page_cost;
 	path->baserel_pages = baserel->pages;
 }
@@ -412,11 +405,8 @@ cost_samplescan(Path *path, PlannerInfo *root,
 	path->startup_cost = startup_cost;
 	path->total_cost = startup_cost + run_cost;
 
-	/* Jovis Cost */
+	/* Jovis */
 	path->run_cost = run_cost;
-
-	path->qpqual_startup_cost = qpqual_cost.startup;
-	path->pathtarget_startup_cost = path->pathtarget->cost.startup;
 
 	path->cpu_per_tuple = cpu_per_tuple;
 	path->baserel_tuples = baserel->tuples;
@@ -463,12 +453,10 @@ cost_gather(GatherPath *path, PlannerInfo *root,
 	path->path.startup_cost = startup_cost;
 	path->path.total_cost = (startup_cost + run_cost);
 
-	/* Jovis Cost */
+	/* Jovis */
 	path->path.run_cost = run_cost;
-	path->path.subpath_startup_cost = path->subpath->startup_cost;
-	path->path.parallel_setup_cost = parallel_setup_cost;
-
-	path->path.subpath_total_cost = path->subpath->total_cost;
+	
+	path->path.subpath_cost = path->subpath->total_cost - path->subpath->startup_cost;
 	path->path.parallel_tuple_cost = parallel_tuple_cost;
 }
 
@@ -538,14 +526,13 @@ cost_gather_merge(GatherMergePath *path, PlannerInfo *root,
 	path->path.startup_cost = startup_cost + input_startup_cost;
 	path->path.total_cost = (startup_cost + run_cost + input_total_cost);
 
-	/* Jovis Cost */
+	/* Jovis */
 	path->path.run_cost = run_cost;
+	path->path.input_startup_cost = input_startup_cost;
 	path->path.input_total_cost = input_total_cost;
 
 	path->path.comparison_cost = comparison_cost;
 	path->path.logN = logN;
-	path->path.parallel_setup_cost = parallel_setup_cost;
-	
 	path->path.cpu_operator_cost = cpu_operator_cost;
 	path->path.parallel_tuple_cost = parallel_tuple_cost;
 }
@@ -712,7 +699,7 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 
 		max_IO_cost = (pages_fetched * spc_random_page_cost) / loop_count;
 
-		/* Jovis Cost */
+		/* Jovis */
 		path->path.pages_fetched = pages_fetched;
 
 		/*
@@ -755,9 +742,6 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 
 		/* max_IO_cost is for the perfectly uncorrelated case (csquared=0) */
 		max_IO_cost = pages_fetched * spc_random_page_cost;
-
-		/* Jovis Cost */
-		path->path.pages_fetched = pages_fetched;
 
 		/* min_IO_cost is for the perfectly correlated case (csquared=1) */
 		pages_fetched = ceil(indexSelectivity * (double) baserel->pages);
@@ -836,6 +820,7 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 	if (path->path.parallel_workers > 0)
 	{
 		double		parallel_divisor = get_parallel_divisor(&path->path);
+		path->path.parallel_divisor = parallel_divisor; // Jovis
 
 		path->path.rows = clamp_row_est(path->path.rows / parallel_divisor);
 
@@ -843,29 +828,24 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 		cpu_run_cost /= parallel_divisor;
 	}
 
+	path->path.cpu_run_cost = cpu_run_cost; // Jovis
+	path->path.disk_run_cost= run_cost - indexTotalCost + indexStartupCost; // Jovis
+
 	run_cost += cpu_run_cost;
 
 	path->path.startup_cost = startup_cost;
 	path->path.total_cost = startup_cost + run_cost;
 
-	/* Jovis Cost */
-	path->path.loop_count = loop_count;
+	/* Jovis */
+	path->path.cpu_per_tuple = cpu_per_tuple;
+	path->path.baserel_tuples = tuples_fetched;
+	path->path.pathtarget_cost = path->path.pathtarget->cost.per_tuple;
 
 	path->path.index_scan_cost = indexTotalCost - indexStartupCost;
 	path->path.index_correlation = indexCorrelation;
-	path->path.index_selectivity = indexSelectivity;
 
-	path->path.cpu_run_cost = cpu_run_cost;
-	path->path.cpu_per_tuple = cpu_per_tuple;
-	path->path.tuples_fetched = tuples_fetched;
-	path->path.pathtarget_cost = path->path.pathtarget->cost.per_tuple;
-
-	path->path.disk_run_cost = max_IO_cost + csquared * (min_IO_cost - max_IO_cost);
 	path->path.max_io_cost = max_IO_cost;
 	path->path.min_io_cost = min_IO_cost;
-	path->path.spc_seq_page_cost = spc_seq_page_cost;
-	path->path.spc_random_page_cost = spc_random_page_cost;
-	path->path.baserel_pages = baserel->pages;
 }
 
 /*
@@ -1153,10 +1133,10 @@ cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
 	path->startup_cost = startup_cost;
 	path->total_cost = startup_cost + run_cost;
 
-	/* Jovis Cost */
+	/* Jovis */
 	path->cpu_run_cost = cpu_run_cost;
 	path->cpu_per_tuple = cpu_per_tuple;
-	path->tuples_fetched = tuples_fetched;
+	path->baserel_tuples = tuples_fetched;
 	path->pathtarget_cost = path->pathtarget->cost.per_tuple;
 
 	path->pages_fetched = pages_fetched;
@@ -3080,22 +3060,12 @@ initial_cost_nestloop(PlannerInfo *root, JoinCostWorkspace *workspace,
 	inner_run_cost = inner_path->total_cost - inner_path->startup_cost;
 	inner_rescan_run_cost = inner_rescan_total_cost - inner_rescan_start_cost;
 
-	if (jointype == JOIN_SEMI || jointype == JOIN_ANTI ||
-		extra->inner_unique)
-	{
-		/*
-		 * With a SEMI or ANTI join, or if the innerrel is known unique, the
-		 * executor will stop after the first match.
-		 *
-		 * Getting decent estimates requires inspection of the join quals,
-		 * which we choose to postpone to final_cost_nestloop.
-		 */
+	/* Jovis */
+	workspace->inner_run_cost = inner_run_cost;
+	workspace->inner_rescan_run_cost = inner_rescan_run_cost;
 
-		/* Save private data for final_cost_nestloop */
-		workspace->inner_run_cost = inner_run_cost;
-		workspace->inner_rescan_run_cost = inner_rescan_run_cost;
-	}
-	else
+	if(jointype != JOIN_SEMI && jointype != JOIN_ANTI &&
+		!extra->inner_unique)
 	{
 		/* Normal case; we'll scan whole input rel for each outer row */
 		run_cost += inner_run_cost;
@@ -3111,15 +3081,8 @@ initial_cost_nestloop(PlannerInfo *root, JoinCostWorkspace *workspace,
 	/* Save private data for final_cost_nestloop */
 	workspace->run_cost = run_cost;
 
-	/* Jovis Cost */
-	workspace->initial_startup_cost = startup_cost;
-	workspace->initial_total_cost = startup_cost + run_cost;
-	workspace->initial_run_cost = run_cost;
-
-	workspace->outer_startup_cost = outer_path->startup_cost;
-	workspace->outer_run_cost = outer_path->total_cost - outer_path->startup_cost;
-	workspace->inner_startup_cost = inner_path->startup_cost;
-
+	/* Jovis */
+	workspace->outer_path_run_cost = outer_path->total_cost - outer_path->startup_cost;
 	workspace->outer_path_rows = outer_path_rows;
 	workspace->inner_rescan_start_cost = inner_rescan_start_cost;
 }
@@ -3146,6 +3109,10 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 	Cost		cpu_per_tuple;
 	QualCost	restrict_qual_cost;
 	double		ntuples;
+
+	/* Jovis */
+	path->jpath.path.is_early_stop = false;
+	path->jpath.path.has_indexed_join_quals = false;
 
 	/* Protect some assumptions below that rowcounts aren't zero */
 	if (outer_path_rows <= 0)
@@ -3180,6 +3147,8 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 	if (path->jpath.jointype == JOIN_SEMI || path->jpath.jointype == JOIN_ANTI ||
 		extra->inner_unique)
 	{
+		path->jpath.path.is_early_stop = true; // Jovis
+
 		/*
 		 * With a SEMI or ANTI join, or if the innerrel is known unique, the
 		 * executor will stop after the first match.
@@ -3209,6 +3178,13 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 		 */
 		ntuples = outer_matched_rows * inner_path_rows * inner_scan_frac;
 
+		/* Jovis */
+		path->jpath.path.inner_run_cost = inner_run_cost;
+		path->jpath.path.inner_rescan_run_cost = inner_rescan_run_cost;
+		path->jpath.path.outer_matched_rows = outer_matched_rows;
+		path->jpath.path.outer_unmatched_rows = outer_unmatched_rows;
+		path->jpath.path.inner_scan_frac = inner_scan_frac;
+
 		/*
 		 * Now we need to estimate the actual costs of scanning the inner
 		 * relation, which may be quite a bit less than N times inner_run_cost
@@ -3220,6 +3196,8 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 		 */
 		if (has_indexed_join_quals(path))
 		{
+			path->jpath.path.has_indexed_join_quals = true; // Jovis
+
 			/*
 			 * Successfully-matched outer rows will only require scanning
 			 * inner_scan_frac of the inner relation.  In this case, we don't
@@ -3277,6 +3255,10 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 			else
 				outer_matched_rows -= 1;
 
+			/* Jovis */
+			path->jpath.path.outer_matched_rows = outer_matched_rows;
+			path->jpath.path.outer_unmatched_rows = outer_unmatched_rows;
+
 			/* Add inner run cost for additional outer tuples having matches */
 			if (outer_matched_rows > 0)
 				run_cost += outer_matched_rows * inner_rescan_run_cost * inner_scan_frac;
@@ -3307,28 +3289,20 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 	path->jpath.path.startup_cost = startup_cost;
 	path->jpath.path.total_cost = startup_cost + run_cost;
 
-	/* Jovis Cost for Initial Cost */
-	path->jpath.path.initial_startup_cost = workspace->initial_startup_cost;
-	path->jpath.path.initial_total_cost = workspace->initial_total_cost;
-	path->jpath.path.initial_run_cost = workspace->initial_run_cost;
+	/* Jovis */
+	path->jpath.path.initial_outer_path_run_cost = workspace->outer_path_run_cost;
+	path->jpath.path.initial_outer_path_rows = workspace->outer_path_rows;
+	path->jpath.path.initial_inner_run_cost = workspace->inner_run_cost;
+	path->jpath.path.initial_inner_rescan_start_cost = workspace->inner_rescan_start_cost;
+	path->jpath.path.initial_inner_rescan_run_cost = workspace->inner_rescan_run_cost;
 
-	path->jpath.path.outer_startup_cost = workspace->outer_startup_cost;
-	path->jpath.path.outer_run_cost = workspace->outer_run_cost;
-	path->jpath.path.inner_startup_cost = workspace->inner_startup_cost;
-	path->jpath.path.inner_run_cost = workspace->inner_run_cost;
+	path->jpath.path.startup_cost = startup_cost;
+	path->jpath.path.run_cost = run_cost;
 
-	path->jpath.path.outer_path_rows = workspace->outer_path_rows;
-	path->jpath.path.inner_rescan_start_cost = workspace->inner_rescan_start_cost;
-
-	/* Jovis Cost for Final Cost */
-	path->jpath.path.restrict_qual_cost_startup = restrict_qual_cost.startup;
-
+	path->jpath.path.inner_path_rows = inner_path_rows;
 	path->jpath.path.cpu_per_tuple = cpu_per_tuple;
 	path->jpath.path.ntuples = ntuples;
-	path->jpath.path.outer_path_rows = outer_path_rows;
-	path->jpath.path.inner_path_rows = inner_path_rows;
-
-	/* TODO: With a SEMI or ANTI join, or if the innerrel is known unique */
+	path->jpath.path.cost_per_tuple = path->jpath.path.pathtarget->cost.per_tuple;
 }
 
 /*

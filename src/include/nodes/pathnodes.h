@@ -1636,10 +1636,10 @@ typedef struct Path
 
 	double spc_seq_page_cost;
 	BlockNumber baserel_pages;
-	/* -- seqscan */
+	/* -- seq scan */
 
 	double spc_page_cost;
-	/* -- samplescan */
+	/* -- sample scan */
 
 	Cost run_cost;
 
@@ -1685,6 +1685,9 @@ typedef struct Path
 	double ntuples;
 	Cost cost_per_tuple;
 	/* -- nestloop */
+
+	double mergejointuples;
+	/* -- merge join */
 
 	/* sort ordering of path's output; a List of PathKey nodes; see above */
 	List *pathkeys;

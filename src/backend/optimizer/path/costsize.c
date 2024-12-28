@@ -3290,15 +3290,14 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 	path->jpath.path.total_cost = startup_cost + run_cost;
 
 	/* Jovis */
+	path->jpath.path.run_cost = run_cost;
+
 	path->jpath.path.initial_outer_path_run_cost = workspace->outer_path_run_cost;
 	path->jpath.path.initial_outer_path_rows = workspace->outer_path_rows;
 	path->jpath.path.initial_inner_run_cost = workspace->inner_run_cost;
 	path->jpath.path.initial_inner_rescan_start_cost = workspace->inner_rescan_start_cost;
 	path->jpath.path.initial_inner_rescan_run_cost = workspace->inner_rescan_run_cost;
-
-	path->jpath.path.startup_cost = startup_cost;
-	path->jpath.path.run_cost = run_cost;
-
+	
 	path->jpath.path.inner_path_rows = inner_path_rows;
 	path->jpath.path.cpu_per_tuple = cpu_per_tuple;
 	path->jpath.path.ntuples = ntuples;
@@ -3810,6 +3809,13 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 
 	path->jpath.path.startup_cost = startup_cost;
 	path->jpath.path.total_cost = startup_cost + run_cost;
+
+	/* Jovis */
+	path->jpath.path.run_cost = run_cost;
+
+	path->jpath.path.cpu_per_tuple = cpu_per_tuple;
+	path->jpath.path.mergejointuples = mergejointuples;
+	path->jpath.path.cost_per_tuple = path->jpath.path.pathtarget->cost.per_tuple;
 }
 
 /*

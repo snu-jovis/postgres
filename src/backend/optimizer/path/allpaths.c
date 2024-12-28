@@ -4664,6 +4664,20 @@ print_path(PlannerInfo *root, Path *path, int indent)
 		printf(" details: ");
 		printf("run_cost=%lf initial_outer_path_run_cost=%lf initial_outer_path_rows=%lf initial_inner_run_cost=%lf initial_inner_rescan_start_cost=%lf initial_inner_rescan_run_cost=%lf is_early_stop=%d has_indexed_join_quals=%d inner_run_cost=%lf inner_rescan_run_cost=%lf outer_matched_rows=%lf outer_unmatched_rows=%lf inner_scan_frac=%lf inner_path_rows=%lf cpu_per_tuple=%lf ntuples=%lf cost_per_tuple=%lf\n", path->run_cost, path->initial_outer_path_run_cost, path->initial_outer_path_rows, path->initial_inner_run_cost, path->initial_inner_rescan_start_cost, path->initial_inner_rescan_run_cost, path->is_early_stop, path->has_indexed_join_quals, path->inner_run_cost, path->inner_rescan_run_cost, path->outer_matched_rows, path->outer_unmatched_rows, path->inner_scan_frac, path->inner_path_rows, path->cpu_per_tuple, path->ntuples, path->cost_per_tuple);
 	}
+	else if (!strcmp(ptype, "MergeJoin"))
+	{
+		for (i = 0; i < indent; i++)
+			printf("\t");
+		printf(" details: ");
+		printf("run_cost=%lf initial_sort_path_run_cost=%lf initial_outer_path_run_cost=%lf initial_outer_sel=%lf mat_inner_cost=%lf bare_inner_cost=%lf merge_qual_cost=%lf outer_rows=%lf inner_rows=%lf outer_skip_rows=%lf inner_skip_rows=%lf rescanratio=%lf cpu_per_tuple=%lf mergejointuples=%lf cost_per_tuple=%lf\n", path->run_cost, path->initial_sort_path_run_cost, path->initial_outer_path_run_cost, path->initial_outer_sel, path->mat_inner_cost, path->bare_inner_cost, path->merge_qual_cost, path->outer_rows, path->inner_rows, path->outer_skip_rows, path->inner_skip_rows, path->rescanratio, path->cpu_per_tuple, path->mergejointuples, path->cost_per_tuple);
+	}
+	else if (!strcmp(ptype, "HashJoin"))
+	{
+		for (i = 0; i < indent; i++)
+			printf("\t");
+		printf(" details: ");
+		printf("run_cost=%lf initial_numbatches=%d initial_outer_path_run_cost=%lf initial_cpu_operator_cost=%lf initial_num_hashclauses=%d initial_outer_path_rows=%lf initial_seq_page_cost=%lf initial_innerpages=%lf initial_outerpages=%lf is_early_stop=%d outer_matched_rows=%lf outer_unmatched_rows=%lf matched_bucket_rows=%lf unmatched_bucket_rows=%lf bucket_rows=%lf hash_qual_cost=%lf outer_path_rows=%lf cpu_per_tuple=%lf hashjointuples=%lf cost_per_tuple=%lf\n", path->run_cost, path->initial_numbatches, path->initial_outer_path_run_cost, path->initial_cpu_operator_cost, path->initial_num_hashclauses, path->initial_outer_path_rows, path->initial_seq_page_cost, path->initial_innerpages, path->initial_outerpages, path->is_early_stop, path->outer_matched_rows, path->outer_unmatched_rows, path->matched_bucket_rows, path->unmatched_bucket_rows, path->bucket_rows, path->hash_qual_cost, path->outer_path_rows, path->cpu_per_tuple, path->hashjointuples, path->cost_per_tuple);
+	}
 
 	if (join)
 	{
@@ -4674,7 +4688,7 @@ print_path(PlannerInfo *root, Path *path, int indent)
 		printf("  clauses: ");
 		print_restrictclauses(root, jp->joinrestrictinfo);
 		printf("\n");
-		
+
 		if (IsA(path, MergePath))
 		{
 			MergePath  *mp = (MergePath *) path;

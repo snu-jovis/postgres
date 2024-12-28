@@ -1684,10 +1684,39 @@ typedef struct Path
 	double inner_path_rows;
 	double ntuples;
 	Cost cost_per_tuple;
-	/* -- nestloop */
+	/* -- nested loop */
+
+	Cost initial_sort_path_run_cost;
+	Cost initial_outer_sel;
+
+	Cost mat_inner_cost;
+	Cost bare_inner_cost;
+	Cost merge_qual_cost;
+
+	double outer_rows;
+	double inner_rows;
+	double outer_skip_rows;
+	double inner_skip_rows;
+	double rescanratio;
 
 	double mergejointuples;
 	/* -- merge join */
+
+	int initial_numbatches;
+	Cost initial_cpu_operator_cost;
+	int initial_num_hashclauses;
+	double initial_seq_page_cost;
+	double initial_innerpages;
+	double initial_outerpages;
+
+	Cost hash_qual_cost;
+	double outer_path_rows;
+	double bucket_rows;
+	double matched_bucket_rows;
+	double unmatched_bucket_rows;
+
+	double hashjointuples;
+	/* -- hash join */
 
 	/* sort ordering of path's output; a List of PathKey nodes; see above */
 	List *pathkeys;
@@ -3365,6 +3394,18 @@ typedef struct JoinCostWorkspace
 	Cost outer_path_run_cost;
 	double outer_path_rows;
 	Cost inner_rescan_start_cost;
+	/* -- nested loop */
+
+	Cost sort_path_run_cost;
+	Selectivity outer_sel;
+	/* -- merge join */
+
+	double cpu_operator_cost;
+	int num_hashclauses;
+	double seq_page_cost;
+	double innerpages;
+	double outerpages;
+	/* -- hash join */
 } JoinCostWorkspace;
 
 /*

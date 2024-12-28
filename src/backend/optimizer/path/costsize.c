@@ -3531,11 +3531,15 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	workspace->total_cost = startup_cost + run_cost + inner_run_cost;
 	/* Save private data for final_cost_mergejoin */
 	workspace->run_cost = run_cost;
-	workspace->inner_run_cost = inner_run_cost;
 	workspace->outer_rows = outer_rows;
 	workspace->inner_rows = inner_rows;
 	workspace->outer_skip_rows = outer_skip_rows;
 	workspace->inner_skip_rows = inner_skip_rows;
+
+	/* Jovis */
+	workspace->sort_path_run_cost = sort_path.total_cost - sort_path.startup_cost;
+	workspace->outer_path_run_cost = outer_path->total_cost - outer_path->startup_cost;
+	workspace->outer_sel = outerendsel - outerstartsel;
 }
 
 /*
@@ -3813,6 +3817,19 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 	/* Jovis */
 	path->jpath.path.run_cost = run_cost;
 
+	path->jpath.path.initial_sort_path_run_cost = workspace->sort_path_run_cost;
+	path->jpath.path.initial_outer_path_run_cost = workspace->outer_path_run_cost;
+	path->jpath.path.initial_outer_sel = workspace->outer_sel;
+
+	path->jpath.path.mat_inner_cost = mat_inner_cost;
+	path->jpath.path.bare_inner_cost = bare_inner_cost;
+	path->jpath.path.merge_qual_cost = merge_qual_cost.per_tuple;
+	path->jpath.path.outer_rows = outer_rows;
+	path->jpath.path.inner_rows = inner_rows;
+	path->jpath.path.outer_skip_rows = outer_skip_rows;
+	path->jpath.path.inner_skip_rows = inner_skip_rows;
+	path->jpath.path.rescanratio = rescanratio;
+
 	path->jpath.path.cpu_per_tuple = cpu_per_tuple;
 	path->jpath.path.mergejointuples = mergejointuples;
 	path->jpath.path.cost_per_tuple = path->jpath.path.pathtarget->cost.per_tuple;
@@ -3983,6 +4000,10 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 
 		startup_cost += seq_page_cost * innerpages;
 		run_cost += seq_page_cost * (innerpages + 2 * outerpages);
+
+		/* Jovis */
+		workspace->innerpages = innerpages;
+		workspace->outerpages = outerpages;
 	}
 
 	/* CPU costs left for later */
@@ -3995,6 +4016,13 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	workspace->numbuckets = numbuckets;
 	workspace->numbatches = numbatches;
 	workspace->inner_rows_total = inner_path_rows_total;
+
+	/* Jovis */
+	workspace->outer_path_run_cost = outer_path->total_cost - outer_path->startup_cost;
+	workspace->cpu_operator_cost = cpu_operator_cost;
+	workspace->num_hashclauses = num_hashclauses;
+	workspace->outer_path_rows = outer_path_rows;
+	workspace->seq_page_cost = seq_page_cost;
 }
 
 /*
@@ -4031,6 +4059,9 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 	Selectivity innerbucketsize;
 	Selectivity innermcvfreq;
 	ListCell   *hcl;
+
+	/* Jovis */
+	path->jpath.path.is_early_stop = false;
 
 	/* Mark the path with the correct row estimate */
 	if (path->jpath.path.param_info)
@@ -4167,6 +4198,8 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 		path->jpath.jointype == JOIN_ANTI ||
 		extra->inner_unique)
 	{
+		path->jpath.path.is_early_stop = true; // Jovis
+
 		double		outer_matched_rows;
 		Selectivity inner_scan_frac;
 
@@ -4206,6 +4239,12 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 			(outer_path_rows - outer_matched_rows) *
 			clamp_row_est(inner_path_rows / virtualbuckets) * 0.05;
 
+		/* Jovis */
+		path->jpath.path.outer_matched_rows = outer_matched_rows;
+		path->jpath.path.outer_unmatched_rows = outer_path_rows - outer_matched_rows;
+		path->jpath.path.matched_bucket_rows = clamp_row_est(inner_path_rows * innerbucketsize * inner_scan_frac);
+		path->jpath.path.unmatched_bucket_rows = clamp_row_est(inner_path_rows / virtualbuckets);
+
 		/* Get # of tuples that will pass the basic join */
 		if (path->jpath.jointype == JOIN_ANTI)
 			hashjointuples = outer_path_rows - outer_matched_rows;
@@ -4227,6 +4266,9 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 		startup_cost += hash_qual_cost.startup;
 		run_cost += hash_qual_cost.per_tuple * outer_path_rows *
 			clamp_row_est(inner_path_rows * innerbucketsize) * 0.5;
+
+		/* Jovis */
+		path->jpath.path.bucket_rows = clamp_row_est(inner_path_rows * innerbucketsize);
 
 		/*
 		 * Get approx # tuples passing the hashquals.  We use
@@ -4252,6 +4294,24 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 
 	path->jpath.path.startup_cost = startup_cost;
 	path->jpath.path.total_cost = startup_cost + run_cost;
+
+	/* Jovis */
+	path->jpath.path.run_cost = run_cost;
+
+	path->jpath.path.initial_numbatches = workspace->numbatches;
+	path->jpath.path.initial_outer_path_run_cost = workspace->outer_path_run_cost;
+	path->jpath.path.initial_cpu_operator_cost = workspace->cpu_operator_cost;
+	path->jpath.path.initial_num_hashclauses = workspace->num_hashclauses;
+	path->jpath.path.initial_outer_path_rows = workspace->outer_path_rows;
+	path->jpath.path.initial_seq_page_cost = workspace->seq_page_cost;
+	path->jpath.path.initial_innerpages = workspace->innerpages;
+	path->jpath.path.initial_outerpages = workspace->outerpages;
+
+	path->jpath.path.hash_qual_cost = hash_qual_cost.per_tuple;
+	path->jpath.path.outer_path_rows = outer_path_rows;
+	path->jpath.path.cpu_per_tuple = cpu_per_tuple;
+	path->jpath.path.hashjointuples = hashjointuples;
+	path->jpath.path.cost_per_tuple = path->jpath.path.pathtarget->cost.per_tuple;
 }
 
 
